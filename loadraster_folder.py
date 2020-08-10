@@ -69,7 +69,7 @@ files = os.listdir(file_directory)
 new_layers = []
 
 for dem in files:
-	if dem.endswith(".tif"):
+	if (dem.endswith(".tif")) or (dem.endswith('.TIF')):
 		fn = os.path.join(file_directory, dem)
 		fileinfo = QFileInfo(fn)
 		filename = fileinfo.completeBaseName()
