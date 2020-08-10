@@ -77,8 +77,14 @@ for dem in files:
 		sleep(0.5)
 		new_layers.append([newlayer, filename])
 		sleep(0.5)
-		print("Added layer for %s" % fn)
+		QgsMessageLog.logMessage(
+			'Added layer for {layername}'.format(layername=fn),
+			CATEGORY, Qgis.Info)
 		sleep(0.5)
+
+QgsMessageLog.logMessage(
+			'Found {count} dem files'.format(count=len(new_layers)),
+			CATEGORY, Qgis.Info)
 
 process_task = QgsTask.fromFunction('Finished importing dems', processLayers, on_finished=layersCompleted, layers=new_layers)
 QgsApplication.taskManager().addTask(process_task)
