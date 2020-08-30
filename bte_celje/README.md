@@ -6,7 +6,7 @@ Opozorilo
 
 Ta navodila so namenjena vsem, ki nameravajo graditi Celje oz. okolico, in sicer naslednje območje.
 
-![Območje gradnje](map.png)
+![Območje gradnje](map.jpg)
 
 Obrazložilo
 -----------
