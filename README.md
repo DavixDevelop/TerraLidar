@@ -90,7 +90,7 @@ F. Generating tiles
 
 G. Minecraft Terra++
 --------------------
-- Download and install Terra++ form [here](https://github.com/bitbyte2015/terraplusplus/releases/tag/v1.0)
+- Download and install Terra++ form [here](https://github.com/bitbyte2015/terraplusplus/releases)
 - Open Minecraft and create a new world using the usual Build The Earth settings
 - Set the Custom Terrain to ON
 - In the Custom Terrain Directory textbox, specify the path to your tile, but be sure to use / instead of \ and add a / at the end (ex. C:/Users/david/Documents/Minecraft/CustomTerrain/Flats/)
