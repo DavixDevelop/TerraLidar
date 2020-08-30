@@ -8,6 +8,20 @@ Ta navodila so namenjena vsem, ki nameravajo graditi Celje oz. okolico, in sicer
 
 ![Območje gradnje](map.jpg)
 
+
+- Ko ustvarimo svet, se z ukazom /tpll 46.225556, 15.266604 premestimo v Celje
+
+Primerjava
+----------
+
+Spodaj vidimo primer terena, pri uporabi privzetih podatkov, ki jih uporablja Terra. Opazimo da ima teren zelo nizko kakovost.
+
+![Prej](before.png)
+
+V primerjavi z uporabo podatkov izluščenih iz LIDAR podatkov, ima teren boljšo kvaliteto in z tem boljši končni izgled.
+
+![Zdaj](now.png)
+
 Obrazložilo
 -----------
 
@@ -28,5 +42,3 @@ Navodila
 - v textovno polje spodaj vnesemo pot do CustomTerrain/Flats, le da pazimo, da namesto \ uporabimo / in prav tako na koncu poti prav tako dodamo / (npr. C:/Users/david/Documents/Minecraft/CustomTerrain/Flats/)
 
 ![Terra++ nastavitve](nastavitve.jpg)
-
-- Ko ustvarimo svet, se z ukazom /tpll 46.225556, 15.266604 premestimo v Celje
