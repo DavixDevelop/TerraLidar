@@ -8,7 +8,7 @@ I do not own the provided qCSF plugin, therefore use it at your discretion. You 
 Introduction
 ------------
 
-This guide is intended for those who wish to use the custom terrain feature for the mod Terra++ for Minecraft and wish to use lidar data as the data source. The following procedure takes quite a while, but this is the nature when working with lidar data. The guide has been tested with CloudCompare v2.11.0 and QGIS v3.14.1.
+This guide is intended for those who wish to use the custom terrain feature for the mod Terra++ for Minecraft and wish to use lidar data as the data source. The following procedure takes quite a while, but this is the nature when working with lidar data. It's also presumed that the lidar data hasn't been processed before (for example, the off-ground points removed, with ground points remaining). If your lidar data only has ground points, use the ground_only_export_dem.py script instead. The guide has been tested with CloudCompare v2.11.1 and QGIS v3.14.1.
 
 Short description
 -----------------
@@ -22,7 +22,7 @@ A. CloudCompare & QGIS preparation
 ----------------------------------
 
 - First download and install CloudComapre v2.11 from [here](https://www.danielgm.net/cc)
-- Donwload and install QGIS from [here]()
+- Download and install QGIS from [here]()
 - Then navigate to the plugins folder of CloudCompare (default: C:\Program Files\CloudCompare\plugins)
 - Download the QCSF_PLUGIN.dll file from the plugins folder on this repository or build it on your own from the source in the plugins folder. More on that [here](https://github.com/CloudCompare/CloudCompare)
 - Place the plugin in the plugins folder
@@ -32,14 +32,14 @@ B. Generating dem files
 - Download and place your lidar files into a folder (ex. Documents\Minecraft\Lidar)
 - Open QGIS and navigate to Plugins/Python Console in the toolbar
 - In the opened bottom panel click on the "Show Editor" button (Script icon)
-- Open the export_dem.py file using the "Open Script..." button (Folder icon)
-- Once open navigate to the lidar_directory line (line: 45)
-- Here replace the path with your path to the folder and make sure to use \\
+- Open the export_dem.py or ground_only_export_dem.py (if your lidar data only contains ground points) file using the "Open Script..." button (Folder icon)
+- Once open navigate to the lidar_directory line (line: 14)
+- Here replace the path with your path to the folder where you lidar data is saved and make sure to use double backslash
+- Then navigate to the dem_directory line (line: 15) and replace the path where you wish to save the dem files, making sure to use double backslash
 - Save the changes using the "Save" button (Floppy disk icon)
 - Navigate to View/Panels/Log Messages in the toolbar
 - Now, depending on how many lidar files you have this can take quite a while, up to multiple hours. Click on the "Run Script" button (green play button)
 - After the script is finished you will get a notification from QGIS
-- Move the generated .tif files to a separate folder
 
 C. Importing dem files
 ----------------------
@@ -48,7 +48,7 @@ C. Importing dem files
 - Navigate to the file_directory line (line: 65)
 - Here replace the path with your path to the folder where your .tif files are located
 - Save the script and run it
-- It may lag a bit at the start and at the end but let it run. Again, this can take a while
+- It may lag a bit at the start and the end but let it run. Again, this can take a while
 - The script outputs the progress into the Log Messages panel
 - Once It's done QGIS will send you a notification
 
@@ -100,4 +100,3 @@ qCSF plugin
 -----------
 
 The provided plugin is a modified version of the qCSF plugin made to work in the command mode. If you wish to learn more go [here](https://github.com/DavixDevelop/TerraLidar/tree/master/qCSF).
-

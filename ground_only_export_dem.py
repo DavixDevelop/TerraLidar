@@ -36,15 +36,17 @@ def filesProccesed(task, result=None):
 
 
 def processFile(file_data):
-	subprocess.check_output('\"C:\\Program Files\\CloudCompare\\CloudCompare\" -SILENT -O -GLOBAL_SHIFT AUTO  \"{file}\" -CSF -SCENES SLOPE -CLOTH_RESOLUTION 0.5 -CLASS_THRESHOLD 0.5 -RASTERIZE -GRID_STEP 1 -VERT_DIR 2 -PROJ MIN -SF_PROJ AVG -EMPTY_FILL INTERP -OUTPUT_RASTER_Z'.format(file=file_data[0]), cwd=lidar_directory, shell=True)
+	subprocess.check_output('\"C:\\Program Files\\CloudCompare\\CloudCompare\" -SILENT -O -GLOBAL_SHIFT AUTO  \"{file}\" -RASTERIZE -GRID_STEP 1 -VERT_DIR 2 -PROJ MIN -SF_PROJ AVG -EMPTY_FILL INTERP -OUTPUT_RASTER_Z'.format(file=file_data[0]), cwd=lidar_directory, shell=True)
 	sleep(1)
-	for old_tif in Path(lidar_directory).rglob('{filename}_ground_points*.tif'.format(filename=file_data[1])):
+	for old_tif in Path(lidar_directory).rglob('{filename}_*.tif'.format(filename=file_data[1])):
 		os.rename(old_tif, os.path.join(lidar_directory, "{filename}.tif".format(filename=file_data[1])))
-	for other_tif in Path(lidar_directory).rglob('{filename}_*.tif'.format(filename=file_data[1])):
-		os.remove(other_tif)
 	os.rename(os.path.join(lidar_directory, "{filename}.tif".format(filename=file_data[1])), os.path.join(dem_directory, "{filename}.tif".format(filename=file_data[1])))
 	sleep(1)
 	return file_data[1]
+
+  
+lidar_directory  = "C:\\Users\\david\\Documents\\Minecraft\\Lidar" #enter directory with lidar files
+dem_directory = "C:\\Users\\david\\Documents\\Minecraft\\DEM"
 
 raw_files = os.listdir(lidar_directory)
 
