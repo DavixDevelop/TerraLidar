@@ -77,6 +77,7 @@ F. Generating tiles
 - Set the Resolution to Highest and under Virtual on the right click on Save To File...
 - Save the file to a preferred path
 - Under Input layers select all your layers and click on run
+- Once the virtual layer is created, set It's coordinate reference system (CRS) to the same as your lidar dataset uses (ex. D48_Slovenia_TM)
 - Navigate to Plugins/QMetaTiles/QMetaTiles
 - Set the Tileset name and choose the Output Directory (Documents\Minecraft\CustomTerrain)
 - Set the Layer extent to the virtual layer
