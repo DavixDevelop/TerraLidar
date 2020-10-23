@@ -7,6 +7,7 @@ from time import sleep
 from qgis.core import QgsProject
 from pathlib import Path
 import concurrent.futures
+import shutil
 
 CATEGORY = 'GenerateDem'
 
@@ -38,11 +39,13 @@ def processFile(file_data):
 		os.rename(old_tif, os.path.join(lidar_directory, "{filename}.tif".format(filename=file_data[1])))
 	for other_tif in Path(lidar_directory).rglob('{filename}_*.tif'.format(filename=file_data[1])):
 		os.remove(other_tif)
+	os.rename(os.path.join(lidar_directory, "{filename}.tif".format(filename=file_data[1])), os.path.join(dem_directory, "{filename}.tif".format(filename=file_data[1])))
 	sleep(1)
 	return file_data[1]
 
   
-lidar_directory  = "C:\\Users\\david\\Documents\\Minecraft\\Lidar"
+lidar_directory  = "C:\\Users\\david\\Documents\\Minecraft\\Lidar" #enter directory with lidar files
+dem_directory = "C:\\Users\\david\\Documents\\Minecraft\\DEM" #enter directory where you want to save the generated dem files
 
 raw_files = os.listdir(lidar_directory)
 
