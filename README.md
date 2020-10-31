@@ -56,7 +56,7 @@ D. Setting up the project
 -------------------------
 - Select all your imported layers in the left and right-click on them
 - Navigate to Set CRS/Set Layer CRS...
-- In the opened window choose the same coordinate reference system your lidar dataset uses (ex. D48_Slovenia_TM)
+- In the opened window choose the same coordinate reference system your lidar dataset uses (ex. Slovenia 1996 / Slovene National Grid)
 - Click OK
 - In the bottom right corner click the current project coordinate reference system (ex EPSG...)
 - In the opened windows search for EPSG:4326 (WGS 84)
@@ -73,14 +73,9 @@ E. QMetaTiles plugin
 F. Generating tiles
 -------------------
 - Delete the OpenStreetMap layer
-- In the toolbar navigate to Raster/Miscellaneous/Build Virtual Raster
-- Set the Resolution to Highest and under Virtual on the right click on Save To File...
-- Save the file to a preferred path
-- Under Input layers select all your layers and click on run
-- Once the virtual layer is created, set It's coordinate reference system (CRS) to the same as your lidar dataset uses (ex. D48_Slovenia_TM)
 - Navigate to Plugins/QMetaTiles/QMetaTiles
 - Set the Tileset name and choose the Output Directory (Documents\Minecraft\CustomTerrain)
-- Set the Layer extent to the virtual layer
+- Select Full extent (Make sure the OpenStreetMap layer is deleted)
 - Set the Minimum and Maximum zoom to 17
 - Disable Metatiling
 - Set the Quality under Parameters to 100
