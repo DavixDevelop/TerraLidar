@@ -22,7 +22,7 @@ A. CloudCompare & QGIS preparation
 ----------------------------------
 
 - First download and install CloudComapre v2.11 from [here](https://www.danielgm.net/cc)
-- Download and install QGIS from [here]()
+- Download and install QGIS from [here](https://qgis.org/en/site/forusers/download.html)
 - Then navigate to the plugins folder of CloudCompare (default: C:\Program Files\CloudCompare\plugins)
 - Download the QCSF_PLUGIN.dll file from the plugins folder on this repository or build it on your own from the source in the plugins folder. More on that [here](https://github.com/CloudCompare/CloudCompare)
 - Place the plugin in the plugins folder
