@@ -59,7 +59,7 @@ for raw_file in raw_files:
 		filename = fileinfo.completeBaseName()
 		files.append([fl, filename])
 
-QgsMessageLog.logMessage('Found {count} lidar files'.format(count=len(files)),CATEGORY, Qgis.Info)
+QgsMessageLog.logMessage('Found {count} files'.format(count=len(files)),CATEGORY, Qgis.Info)
 
 process_task = QgsTask.fromFunction('Finished converting {0} files'.format(len(files)), processFiles, on_finished=filesProccesed, filesData=files)
 QgsApplication.taskManager().addTask(process_task)
