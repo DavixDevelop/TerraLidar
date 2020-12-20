@@ -44,16 +44,12 @@ def processFile(file_data):
 	sleep(1)
 	return file_data[1]
 
-  
-lidar_directory  = "C:\\Users\\david\\Documents\\Minecraft\\Lidar" #enter directory with lidar files
-dem_directory = "C:\\Users\\david\\Documents\\Minecraft\\DEM"
-
 raw_files = os.listdir(lidar_directory)
 
 files = []
 
 
-
+#Change the laz extension, to whatever extension your data source uses, but first check if CloudCompare can open it.
 for raw_file in raw_files:
 	if raw_file.endswith(".laz") or raw_file.endswith(".las"):
 		fl = os.path.join(lidar_directory, raw_file)
