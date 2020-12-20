@@ -3,16 +3,16 @@ import glob
 import os
 import multiprocessing
 import subprocess
+import gdal
 from time import sleep
 from qgis.core import QgsProject
 from pathlib import Path
 import concurrent.futures
 import shutil
 
-CATEGORY = 'GenerateDem'
-
+CATEGORY = 'ConvertDem'
 source_directory  = "C:\\Users\\david\\Documents\\Minecraft\\Source" #enter directory with source files
-dem_directory = "C:\\Users\\david\\Documents\\Minecraft\\DEM" #enter directory where you want to save the generated dem files
+dem_directory = "C:\\Users\\david\\Documents\\Minecraft\\DEM" #enter directory where you want to save the converted dem files
 
 
 def processFiles(task, filesData):
@@ -32,15 +32,17 @@ def processFiles(task, filesData):
 
 def filesProccesed(task, result=None):
 	if result is not None:
-		QgsMessageLog.logMessage('Done generating {files_count} dem files'.format(files_count=result),CATEGORY, Qgis.Info)
+		QgsMessageLog.logMessage('Done converting {files_count} files'.format(files_count=result),CATEGORY, Qgis.Info)
 
 
 def processFile(file_data):
-	subprocess.check_output('\"C:\\Program Files\\CloudCompare\\CloudCompare\" -SILENT -O -GLOBAL_SHIFT AUTO  \"{file}\" -RASTERIZE -GRID_STEP 1 -VERT_DIR 2 -PROJ MIN -SF_PROJ AVG -EMPTY_FILL INTERP -OUTPUT_RASTER_Z'.format(file=file_data[0]), cwd=source_directory, shell=True)
+	tileName = file_data[1] + ".tif"
+	tile = os.path.join(dem_directory, tileName)
+	ds = gdal.Open(file_data[0])
 	sleep(1)
-	for old_tif in Path(source_directory).rglob('{filename}_*.tif'.format(filename=file_data[1])):
-		os.rename(old_tif, os.path.join(source_directory, "{filename}.tif".format(filename=file_data[1])))
-	os.rename(os.path.join(source_directory, "{filename}.tif".format(filename=file_data[1])), os.path.join(dem_directory, "{filename}.tif".format(filename=file_data[1])))
+	#Visit https://gdal.org/python/osgeo.gdal-module.html#TranslateOptions to see other options, like width and height for a higher resolution
+	ds = gdal.Translate(tile,ds,format="GTiff",resampleAlg="cubic")
+	ds = None
 	sleep(1)
 	return file_data[1]
 
@@ -49,9 +51,9 @@ raw_files = os.listdir(source_directory)
 files = []
 
 
-#Change the laz extension, to whatever extension your data source uses, but first check if CloudCompare can open it.
+#Change the asc or xyz extension, to whatever extension your raster data source uses, but first check if gdal can open it.
 for raw_file in raw_files:
-	if raw_file.endswith(".laz") or raw_file.endswith(".las"):
+	if raw_file.endswith(".asc") or raw_file.endswith(".xyz"):
 		fl = os.path.join(source_directory, raw_file)
 		fileinfo = QFileInfo(fl)
 		filename = fileinfo.completeBaseName()
@@ -59,5 +61,5 @@ for raw_file in raw_files:
 
 QgsMessageLog.logMessage('Found {count} lidar files'.format(count=len(files)),CATEGORY, Qgis.Info)
 
-process_task = QgsTask.fromFunction('Finished generatings dem for {0} files'.format(len(files)), processFiles, on_finished=filesProccesed, filesData=files)
+process_task = QgsTask.fromFunction('Finished converting {0} files'.format(len(files)), processFiles, on_finished=filesProccesed, filesData=files)
 QgsApplication.taskManager().addTask(process_task)
