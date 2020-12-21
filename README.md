@@ -22,7 +22,7 @@ A. CloudCompare & QGIS preparation
 ----------------------------------
 
 - First download and install CloudComapre v2.11 from [here](https://www.danielgm.net/cc) [Note: You can skip this if you will use the convert_dem script only]
-- Download and install QGIS from [here](https://qgis.org/en/site/forusers/download.html)
+- Download and install the latest version of QGIS in [OSGeo4W](https://qgis.org/en/site/forusers/download.html)
 - Download the [QCSF_PLUGIN.dll](https://github.com/DavixDevelop/TerraLidar/raw/master/qCSF/QCSF_PLUGIN.dll) file from the qCSF folder on this repository or build it on your own from the source in the plugins folder. More on that [here](https://github.com/CloudCompare/CloudCompare). Then place the plugin in the plugins folder (default: C:\Program Files\CloudCompare\plugins) [Note: You can skip this if you will use the ground_only_export_dem script or the convert_dem script only]
 
 B. Generating dem files
@@ -41,7 +41,7 @@ B. Generating dem files
 
 C. Importing dem files
 ----------------------
-- Close the previous script and open the loadraster_folder.py file in QUIS Python Console
+- Close the previous script and open the loadraster_folder.py file in QGIS Python Console
 - Double click on OpenStreetMap in the left panel
 - Navigate to the file_directory line (line: 65)
 - Here replace the path with your path to the folder where your .tif files are located
