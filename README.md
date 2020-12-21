@@ -54,7 +54,7 @@ D. Setting up the project
 -------------------------
 - Select all your imported layers in the left and right-click on them
 - Navigate to Set CRS/Set Layer CRS...
-- In the opened window choose the same coordinate reference system your lidar/source dataset uses (ex. Slovenia 1996 / Slovene National Grid)
+- In the opened window choose the same coordinate reference system your lidar/source dataset uses (ex. Slovenia 1996 / Slovene National Grid). If you have problems with this step, select the layer, go to Layers/Save as, set the CRS, save the file/files and repeat the C section.
 - Click OK
 - In the bottom right corner click the current project coordinate reference system (ex EPSG...)
 - In the opened windows search for EPSG:4326 (WGS 84)
