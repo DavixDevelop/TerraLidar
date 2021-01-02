@@ -78,6 +78,7 @@ F. Generating tiles
 - Disable Metatiling
 - Set the Quality under Parameters to 100
 - Select "Make lines appear less jagged at the expense of some drawing performance"
+- Make sure that the format is set to PNG
 - Click OK
 - This will take quite a while depending on how a large area you have
 - Once It's finished you can close QGIS
