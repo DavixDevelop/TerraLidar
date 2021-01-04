@@ -13,7 +13,7 @@ This guide is intended for those who wish to use the custom terrain feature for 
 Short description
 -----------------
 
-The following procedure first converts your lidar/source files to dem, then it imports the generated files, converts them into a suitable format for Terra++ mod and at the end splits them into tiles.
+The following procedure first converts your lidar/source files to dem, then it imports the generated files, converts them into a suitable format for Terra++ mod and at the end splits them into tiles. If your source data is already GeoTIFF, you can skip downloading CloudCompare and step B. 
 
 Guide
 -----
@@ -30,7 +30,7 @@ B. Generating dem files
 - Download and place your lidar/source files into a folder (ex. Documents\Minecraft\Source)
 - Open QGIS and navigate to Plugins/Python Console in the toolbar
 - In the opened bottom panel click on the "Show Editor" button (Script icon)
-- Open the export_dem.py (if your lidar data doesn't contain only ground points), ground_only_export_dem.py (if your lidar data only contains ground points) or convert_dem.py (if your source data is raster data) file using the "Open Script..." button (Folder icon)
+- Open the export_dem.py (if your lidar data doesn't contain only ground points), ground_only_export_dem.py (if your lidar data only contains ground points) or convert_dem.py (if your source data is raster data, that is in any other format than GeoTIFF. More about this is commented in the script itself) file using the "Open Script..." button (Folder icon)
 - Once open navigate to the source_directory line (line: 14)
 - Here replace the path with your path to the folder where you lidar/source data is saved and make sure to use double backslash
 - Then navigate to the dem_directory line (line: 15) and replace the path where you wish to save the dem files, making sure to use double backslash
