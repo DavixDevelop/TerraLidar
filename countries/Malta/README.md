@@ -52,4 +52,4 @@ B. Generating dem files
 
 C. Importing dem files
 ----------------------
-- From here on forward, follow the [main guide](https://github.com/DavixDevelop/TerraLidar), starting at step C
+- From here on forward, follow the [main guide](https://github.com/DavixDevelop/TerraLidar), starting at step C, but be sure to use EPSG:23033 as the crs for the imported layer and when asked which transformation to use in the "Select Transformation" window, select the one that has an area of use: "World - N hemisphere - 12°E to 18°E, Malta - onshore" (9th one)
