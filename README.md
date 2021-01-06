@@ -1,5 +1,5 @@
-Guide: Terra++ Custom Terrain from Lidar data
-=============================================
+Guide: Terra++ Custom Terrain from Lidar data/Raster data
+=========================================================
 
 Warning
 -------
@@ -8,7 +8,7 @@ I do not own the provided qCSF plugin, therefore use it at your discretion. You 
 Introduction
 ------------
 
-This guide is intended for those who wish to use the custom terrain feature for the mod Terra++ for Minecraft and wish to use lidar/raster data as the data source. The following procedure takes quite a while, but this is the nature when working with lidar data. It's also presumed that if you use lidar data, that the data hasn't been processed before (for example, the off-ground points removed, with ground points remaining). If your lidar data only has ground points, use the ground_only_export_dem.py script instead or if your source data is raster data, use convert_dem.py script instead. The guide has been tested with CloudCompare v2.11.1 and QGIS v3.14.1.
+This guide is intended for those who wish to use the custom terrain feature for the mod Terra++ for Minecraft and wish to use lidar/raster data as the data source. Before you continue, check if your countries already has a guide [here](https://github.com/DavixDevelop/TerraLidar/tree/master/countries). The following procedure takes quite a while, but this is the nature when working with lidar data. It's also presumed that if you use lidar data, that the data hasn't been processed before (for example, the off-ground points removed, with ground points remaining). If your lidar data only has ground points, use the ground_only_export_dem.py script instead or if your source data is raster data, use convert_dem.py script instead. The guide has been tested with CloudCompare v2.11.1 and QGIS v3.14.1.
 
 Short description
 -----------------
