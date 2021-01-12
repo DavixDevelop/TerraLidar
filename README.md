@@ -28,22 +28,23 @@ A. CloudCompare & QGIS preparation
 B. Generating dem files
 -----------------------
 - Download and place your lidar/source files into a folder (ex. Documents\Minecraft\Source)
-- Open QGIS and navigate to Plugins/Python Console in the toolbar
-- In the opened bottom panel click on the "Show Editor" button (Script icon)
-- Open the export_dem.py (if your lidar data doesn't contain only ground points), ground_only_export_dem.py (if your lidar data only contains ground points) or convert_dem.py (if your source data is raster data, that is in any other format than GeoTIFF. More about this is commented in the script itself) file using the "Open Script..." button (Folder icon)
-- Once open navigate to the source_directory line (line: 14)
+- Open QGIS and navigate to `Plugins/Python Console` in the toolbar
+- In the opened bottom panel click on the `Show Editor` button (Script icon)
+- Open the [`export_dem.py`](https://raw.githubusercontent.com/DavixDevelop/TerraLidar/master/export_dem.py) (if your lidar data doesn't contain only ground points), [`ground_only_export_dem.py`](https://raw.githubusercontent.com/DavixDevelop/TerraLidar/master/ground_only_export_dem.py) (if your lidar data only contains ground points) or [`convert_dem.py`](https://raw.githubusercontent.com/DavixDevelop/TerraLidar/master/convert_dem.py) (if your source data is raster data, that is in any other format than GeoTIFF. More about this is commented in the script itself) file using the `Open Script...` button (Folder icon)
+- Once open navigate to the `source_directory` line (line: 14)
 - Here replace the path with your path to the folder where you lidar/source data is saved and make sure to use double backslash
-- Then navigate to the dem_directory line (line: 15) and replace the path where you wish to save the dem files, making sure to use double backslash
-- Save the changes using the "Save" button (Floppy disk icon)
+- Then navigate to the `dem_directory` line (line: 15) and replace the path where you wish to save the dem files, making sure to use double backslash
+- Save the changes using the `Save` button (Floppy disk icon)
 - Navigate to View/Panels/Log Messages in the toolbar
-- Now, depending on how many lidar/source files you have this can take quite a while, up to multiple hours if you use the export_dem script. Click on the "Run Script" button (green play button)
+- Now, depending on how many lidar/source files you have this can take quite a while, up to multiple hours if you use the `export_dem` script. Click on the `Run Script` button (green play button)
 - After the script is finished you will get a notification from QGIS
 
 C. Importing dem files
 ----------------------
-- Close the previous script and open the loadraster_folder.py file in QGIS Python Console
-- Double click on OpenStreetMap in the left panel
-- Navigate to the file_directory line (line: 65)
+![](https://raw.githubusercontent.com/DavixDevelop/TerraLidar/master/images/import_dem.png "QGIS - Import dem procedure")
+- Close the previous script and open the [`loadraster_folder.py`](https://raw.githubusercontent.com/DavixDevelop/TerraLidar/master/loadraster_folder.py) file in QGIS Python Console
+- Double click on `OpenStreetMap` in the left panel (Under 'XYZ Tiles' in the `Browser` panel [View/Panels/Browser])
+- Navigate to the `file_directory` line (line: 65)
 - Here replace the path with your path to the folder where your .tif files are located
 - Save the script and run it
 - It may lag a bit at the start and the end but let it run. Again, this can take a while
@@ -52,44 +53,65 @@ C. Importing dem files
 
 D. Setting up the project
 -------------------------
+![](https://raw.githubusercontent.com/DavixDevelop/TerraLidar/master/images/setting_up.png "QGIS - Setting up the project")
 - Select all your imported layers in the left and right-click on them
-- Navigate to Set CRS/Set Layer CRS...
+- Navigate to `Set CRS/Set Layer CRS...`
 - In the opened window choose the same coordinate reference system your lidar/source dataset uses (ex. Slovenia 1996 / Slovene National Grid). If you have problems with this step, select the layer, go to Layers/Save as, set the CRS, save the file/files and repeat the C section.
-- Click OK
+- Click `OK`
 - In the bottom right corner click the current project coordinate reference system (ex EPSG...)
-- In the opened windows search for EPSG:4326 (WGS 84)
-- Click on WGS 84 and click OK
+- In the opened windows search for `EPSG:4326` (WGS 84)
+- Click on WGS 84 and click `OK`
 - Make sure the layers are in the right location over the map
 
 E. QMetaTiles plugin
 --------------------
-- Navigate to Plugins/Manage And Install Plugins... in the toolbar
+- Navigate to `Plugins/Manage And Install Plugins...` in the toolbar
 - In the opened window click on All and search for QMetaTiles
 - Click on the result and install it
 - Close the window
 
 F. Generating tiles
 -------------------
-- Delete the OpenStreetMap layer
-- Navigate to Plugins/QMetaTiles/QMetaTiles
-- Set the Tileset name and choose the Output Directory (Documents\Minecraft\CustomTerrain)
-- Select Full extent (Make sure the OpenStreetMap layer is deleted)
-- Set the Minimum and Maximum zoom to 17, or lower depending on the resolution of your data, or if you want the dataset to use less space
-- Disable Metatiling
-- Set the Quality under Parameters to 100
-- Select "Make lines appear less jagged at the expense of some drawing performance"
-- Make sure that the format is set to PNG
-- Click OK
+![](https://raw.githubusercontent.com/DavixDevelop/TerraLidar/master/images/generating_tiles.png "QMetaTiles - Generating tiles")
+- Delete the `OpenStreetMap` layer
+- Navigate to `Plugins/QMetaTiles/QMetaTiles`
+- Set the Tileset name and choose the `Output Directory` (ex. Documents\Minecraft\CustomTerrain)
+- Select `Full extent` (Make sure the `OpenStreetMap` layer is deleted)
+- Set the `Minimum` and `Maximum` zoom to 17, or lower depending on the resolution of your data, or if you want the dataset to use less space
+- Disable `Metatiling`
+- Set the `Quality` under Parameters to 100
+- Select `Make lines appear less jagged at the expense of some drawing performance`
+- Make sure that the format is set to `PNG`
+- Click `OK`
 - This will take quite a while depending on how a large area you have
 - Once It's finished you can close QGIS
 
 G. Minecraft Terra++
 --------------------
-- Download and install Terra++ from [here](https://github.com/BuildTheEarth/terraplusplus/releases/tag/jenkins)
-- Open Minecraft and create a new world using the usual Build The Earth settings
-- Set the Custom Terrain to ON
-- In the Custom Terrain Directory textbox, specify the path to your tile, but be sure to use / instead of \ and add a / at the end (ex. C:/Users/david/Documents/Minecraft/CustomTerrain/Flats/)
-- Once the world loads navigate to your location using the /tpll command and it should load your custom terrain
+![](https://raw.githubusercontent.com/DavixDevelop/TerraLidar/master/images/heights_config.png "heights_config.json")
+- Download and install Terra++ from [here](https://github.com/BuildTheEarth/terraplusplus/releases/tag/jenkins) or build it yourself from [here](https://github.com/BuildTheEarth/terraplusplus)
+
+> Note: For now It's recommended to build the mod yourself, to get the latest changes
+
+- Open Minecraft 
+- Click on `Mods`, scroll to `Terra 1 - 1` and click on `Config`
+- Here click on `data` and make sure `customHeights` is set to `true`
+- Save the options and create a new world using the usual Build The Earth settings
+- Exit the game, once the initial island is loaded
+- Using a text editor open `heights_config.json`, which can be found under `.minecraft\terraplusplus\config` (ex. C:\Users\david\AppData\Roaming\.minecraft\terraplusplus\config)
+- To make your life easier, select and copy the default configuration (As shown in the picture, in step 1)
+- Make sure to put a comma after the closing curly bracket and press `Enter` to enter a new line, like show in the picture, in step 2
+- Paste in the previous selection
+- As shown in the picture, in step 3, replace `https://s3.amazonaws.com/elevation-tiles-prod/terrarium/` with `file://{dataset}/`, where `{dataset}` is the path to your dataset (ex. C:/Users/david/Documents/Minecraft/CustomTerrain/Flats)
+- Replace the `10` by `zoom`, with the level of zoom, you rendered your dataset under
+- Under `priority` remove 
+```json
+"condition": {
+      "lessThan": 1.0
+    }
+```
+- Save the file and relaunch the game
+- Open your world and navigate to your desired location using the /tpll command and it should load your custom terrain
 
 qCSF plugin
 -----------
