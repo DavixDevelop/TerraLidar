@@ -89,20 +89,20 @@ F. Generating tiles
 G. Minecraft Terra++
 --------------------
 ![](https://raw.githubusercontent.com/DavixDevelop/TerraLidar/master/images/heights_config.png "heights_config.json")
-- Download and install Terra++ from [here](https://github.com/BuildTheEarth/terraplusplus/releases/tag/jenkins) or build it yourself from [here](https://github.com/BuildTheEarth/terraplusplus)
+- Download and install Terra++ from [here](https://jenkins.daporkchop.net/job/BuildTheEarth/job/terraplusplus/job/master/) or build it yourself from [here](https://github.com/BuildTheEarth/terraplusplus)
 
 > Note: For now It's recommended to build the mod yourself, to get the latest changes
 
 - Open Minecraft 
 - Click on `Mods`, scroll to `Terra 1 - 1` and click on `Config`
-- Here click on `data` and make sure `customHeights` is set to `true`
-- Save the options and create a new world using the usual Build The Earth settings
-- Exit the game, once the initial island is loaded
-- Using a text editor open `heights_config.json`, which can be found under `.minecraft\terraplusplus\config` (ex. C:\Users\david\AppData\Roaming\.minecraft\terraplusplus\config)
+- Here click on `data` and make sure `overrideDefaultElevation` is set to `true`
+- Save the options and exit the game
+- Copy `heights.json5`, which can be found under `.minecraft\terraplusplus\config\heights` (ex. C:\Users\david\AppData\Roaming\.minecraft\terraplusplus\config\heights), and paste it in the same folder
+- Rename the copy to `heights.json` and open it in a text editor
 - To make your life easier, select and copy the default configuration (As shown in the picture, in step 1)
 - Make sure to put a comma after the closing curly bracket and press `Enter` to enter a new line, like show in the picture, in step 2
 - Paste in the previous selection
-- As shown in the picture, in step 3, replace `https://s3.amazonaws.com/elevation-tiles-prod/terrarium/` with `file://{dataset}/`, where `{dataset}` is the path to your dataset (ex. C:/Users/david/Documents/Minecraft/CustomTerrain/Flats)
+- As shown in the picture, in step 3, replace `https://s3.amazonaws.com/elevation-tiles-prod/terrarium/` with `file://{dataset}/`, where `{dataset}` is the path to your dataset (ex. C:/Users/david/Documents/Minecraft/CustomTerrain/Flats). The url would then be for example `file://C:/Users/david/Documents/Minecraft/CustomTerrain/Flats/${zoom}/${x}/${z}.png`
 - Replace the `10` by `zoom`, with the level of zoom, you rendered your dataset under
 - Under `priority` remove 
 ```json
@@ -110,8 +110,8 @@ G. Minecraft Terra++
       "lessThan": 1.0
     }
 ```
-- Save the file and relaunch the game
-- Open your world and navigate to your desired location using the /tpll command and it should load your custom terrain
+- Save the file and create a new world using the usual Build The Earth settings
+- Once your world is created, navigate to your desired location using the /tpll command and it should load your custom terrain
 
 qCSF plugin
 -----------
