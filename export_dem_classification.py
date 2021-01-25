@@ -14,9 +14,9 @@ CATEGORY = 'GenerateDem'
 source_directory  = "C:\\Users\\david\\Documents\\Minecraft\\Source" #enter directory with source files
 dem_directory = "C:\\Users\\david\\Documents\\Minecraft\\DEM" #enter directory where you want to save the generated dem files
 
-min_range = 1.0
-max_range = 2.0
-scalar_index = 5
+min_range = 1.0 #replace with your classification minium value
+max_range = 2.0 #replace with your classification maximum value
+scalar_index = 5 #replace with your classification index
 
 
 def processFiles(task, filesData):
