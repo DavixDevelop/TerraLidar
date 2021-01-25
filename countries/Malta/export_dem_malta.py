@@ -11,8 +11,8 @@ import shutil
 #This is a modifed version of the export_dem script, optimized for use with lidar data from Malta CloudIsle 3D GRID LiDAR Data
 CATEGORY = 'GenerateDemForMalta'
 
-source_directory  = "C:\\Users\\david\\Documents\\Minecraft\\CustomTerrain\\Valletta\\Source" #enter directory with source files
-dem_directory = "C:\\Users\\david\\Documents\\Minecraft\\CustomTerrain\\Valletta\\Dem" #enter directory where you want to save the generated dem files
+source_directory  = "C:\\Users\\david\\Documents\\Minecraft\\Source" #enter directory with source files
+dem_directory = "C:\\Users\\david\\Documents\\Minecraft\\DEM" #enter directory where you want to save the generated dem files
 
 
 def processFiles(task, filesData):
@@ -36,7 +36,7 @@ def filesProccesed(task, result=None):
 
 
 def processFile(file_data):
-	subprocess.check_output('\"C:\\Program Files\\CloudCompare\\CloudCompare\" -SILENT -O -GLOBAL_SHIFT AUTO  \"{file}\" -CSF -SCENES RELIEF -CLOTH_RESOLUTION 0.5 -CLASS_THRESHOLD 0.5 -RASTERIZE -GRID_STEP 1 -VERT_DIR 2 -PROJ MIN -SF_PROJ AVG -EMPTY_FILL INTERP -OUTPUT_RASTER_Z'.format(file=file_data[0]), cwd=source_directory, shell=True)
+	subprocess.check_output('\"C:\\Program Files\\CloudCompare\\CloudCompare\" -SILENT -O -GLOBAL_SHIFT AUTO  \"{file}\" -AUTO_SAVE OFF -SET_ACTIVE_SF 4 -FILTER_SF 2.0 11.0 -RASTERIZE -GRID_STEP 1 -VERT_DIR 2 -PROJ MIN -SF_PROJ AVG -EMPTY_FILL INTERP -OUTPUT_RASTER_Z'.format(file=file_data[0]), cwd=source_directory, shell=True)
 	sleep(1)
 	for old_tif in Path(source_directory).rglob('{filename}_ground_points*.tif'.format(filename=file_data[1])):
 		os.rename(old_tif, os.path.join(source_directory, "{filename}.tif".format(filename=file_data[1])))
