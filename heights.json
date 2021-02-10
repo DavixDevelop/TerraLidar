@@ -1,0 +1,48 @@
+[
+  {
+    "dataset": {
+      "urls": [
+        "file://{path to dataset}/{zoom level}/${x}/${z}.png"
+      ],
+      "projection": {
+          "web_mercator": {
+              "zoom": {zoom level}
+          }
+      },
+      "resolution": 256,
+      "blend": "CUBIC",
+      "parse": {
+          "divide": {
+              "delegate": {
+                  "add": {
+                      "delegate": {
+                          "from_int": {
+                              "delegate": {
+                                  "rgb_extract": {
+                                      "delegate": {
+                                          "parse_png": {}
+                                      }
+                                  }
+                              }
+                          }
+                      },
+                      "value": -8388608
+                  }
+              },
+              "value": 256.0
+          }
+      }
+    },
+    "bounds": {
+      "minX": -180.0,
+      "maxX": 180.0,
+      "minZ": -85,
+      "maxZ": 85
+    },
+    "zooms": {
+        "min": 0,
+        "max": 3
+    },
+    "priority": 100
+  }
+]
