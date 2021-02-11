@@ -2,11 +2,11 @@
   {
     "dataset": {
       "urls": [
-        "file://{path to dataset}/{zoom level}/${x}/${z}.png"
+        "file://(path to dataset)/(zoom level)/${x}/${z}.png"
       ],
       "projection": {
           "web_mercator": {
-              "zoom": {zoom level}
+              "zoom": (zoom level)
           }
       },
       "resolution": 256,
