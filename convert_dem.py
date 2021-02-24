@@ -24,10 +24,14 @@ def processFiles(task, filesData):
 	cpu_count = min(6, cpu_count)
 	ex = concurrent.futures.ThreadPoolExecutor(max_workers=cpu_count)
 	f = ex.map(processFile, filesData)
+	p = 0
 	for res in f:
 		QgsMessageLog.logMessage(
 				'Processed file {name}'.format(name=res),
 				CATEGORY, Qgis.Info)
+		p += 1
+		task.setProgress(int((p * 100) / len(filesData)))
+		sleep(0.05)
 	return result
 
 def filesProccesed(task, result=None):
@@ -39,11 +43,11 @@ def processFile(file_data):
 	tileName = file_data[1] + ".tif"
 	tile = os.path.join(dem_directory, tileName)
 	ds = gdal.Open(file_data[0])
-	sleep(1)
+	sleep(0.05)
 	#Visit https://gdal.org/python/osgeo.gdal-module.html#TranslateOptions to see other options, like width and height for a higher resolution
 	ds = gdal.Translate(tile,ds,format="GTiff",resampleAlg="cubic")
 	ds = None
-	sleep(1)
+	sleep(0.05)
 	return file_data[1]
 
 raw_files = os.listdir(source_directory)

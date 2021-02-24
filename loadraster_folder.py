@@ -26,12 +26,15 @@ def processLayers(task, layers):
 	cpu_count = multiprocessing.cpu_count()
 	ex = concurrent.futures.ThreadPoolExecutor(max_workers=cpu_count)
 	f = ex.map(processLayer, layers)
+	p = 0
 	for res in f:
 		renders.append(res)
 		QgsMessageLog.logMessage(
 				'Processed layer {name}'.format(name=res[2]),
 				CATEGORY, Qgis.Info)
-		sleep(1)
+		p += 1
+		task.setProgress(int((p * 100) / len(layers)))
+		sleep(0.05)
 	return renders
 
 def layersCompleted(exception, result=None):
@@ -41,7 +44,7 @@ def layersCompleted(exception, result=None):
 			QgsMessageLog.logMessage(
 				'Updated layer {name}'.format(name=render[2]),
 				CATEGORY, Qgis.Info)
-			sleep(1)
+			sleep(0.05)
 
 def processLayer(layer):
 	rlayer = layer[0]
@@ -74,13 +77,13 @@ for dem in files:
 		fileinfo = QFileInfo(fn)
 		filename = fileinfo.completeBaseName()
 		newlayer = iface.addRasterLayer(fn, filename)
-		sleep(0.5)
+		sleep(0.05)
 		new_layers.append([newlayer, filename])
-		sleep(0.5)
+		sleep(0.05)
 		QgsMessageLog.logMessage(
 			'Added layer for {layername}'.format(layername=fn),
 			CATEGORY, Qgis.Info)
-		sleep(0.5)
+		sleep(0.05)
 
 QgsMessageLog.logMessage(
 			'Found {count} dem files'.format(count=len(new_layers)),

@@ -28,10 +28,14 @@ def processFiles(task, filesData):
 	cpu_count = min(6, cpu_count)
 	ex = concurrent.futures.ThreadPoolExecutor(max_workers=cpu_count)
 	f = ex.map(processFile, filesData)
+	p = 0
 	for res in f:
 		QgsMessageLog.logMessage(
 				'Processed file {name}'.format(name=res),
 				CATEGORY, Qgis.Info)
+		p += 1
+		task.setProgress(int((p * 100) / len(filesData)))
+		sleep(0.05)
 	return result
 
 def filesProccesed(task, result=None):
@@ -41,11 +45,11 @@ def filesProccesed(task, result=None):
 
 def processFile(file_data):
 	subprocess.check_output('\"C:\\Program Files\\CloudCompare\\CloudCompare\" -SILENT -O -GLOBAL_SHIFT AUTO  \"{file}\" -AUTO_SAVE OFF -SET_ACTIVE_SF {index} -FILTER_SF {min} {max} -RASTERIZE -GRID_STEP 1 -VERT_DIR 2 -PROJ MIN -SF_PROJ AVG -EMPTY_FILL INTERP -OUTPUT_RASTER_Z'.format(file=file_data[0], index=scalar_index,min=min_range,max=max_range), cwd=source_directory, shell=True)
-	sleep(1)
+	sleep(0.05)
 	for old_tif in Path(source_directory).rglob('{filename}_*.tif'.format(filename=file_data[1])):
 		os.rename(old_tif, os.path.join(source_directory, "{filename}.tif".format(filename=file_data[1])))
 	os.rename(os.path.join(source_directory, "{filename}.tif".format(filename=file_data[1])), os.path.join(dem_directory, "{filename}.tif".format(filename=file_data[1])))
-	sleep(1)
+	sleep(0.05)
 	return file_data[1]
 
 raw_files = os.listdir(source_directory)
