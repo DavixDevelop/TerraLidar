@@ -49,6 +49,8 @@ ftp_upload_folder = None
 ftp_user = None # Leave at None for anonymous login, else set to user name, ex. 'davix' 
 ftp_password = None # Leave at None for anonymous login, else set to user password, ex. 'password'
 
+cleanup = True # Set to False if you don't wish to delete VRT file and supporting files once the script completes. It will still do a cleanup, if you run the script again
+
 localThread = threading.local()
 
 # Modified version of scale_query_to_tile from gdal2tiles
@@ -461,43 +463,20 @@ def genTiles(task, files):
                     realtiles += 1
                 rt += 1
                 task.setProgress(max(0, min(int(((rt * 80) / cf) + 20), 100)))
-            
 
-            """
-            pool = None
-            pool = Pool(processes=cpu_count)
-
-            rt = 0
-            cf = len(tiled)
-            for _ in pool.imap_unordered(partial(tileVrt, job), tiled, chunksize=128):
-                rt += 1
-                task.setProgress(max(0, min(int(((rt * 80) / cf) + 20), 100)))
-
-            pool.close()
-            pool.join()
-            """
-
-            setCacheMax(gdal_cache_max)
-        
-        
-        #gdal_cache_max_per_process = max(1024 * 1024, math.floor(ram_cache / cpu_count))
-        
-        #QgsMessageLog.logMessage('Original cache: {cac}, ram cache: {ramc},new cache per thread: {cac2}'.format(cac=gdal_cache_max,ramc=ram_cache,cac2=gdal_cache_max_per_process),CATEGORY, Qgis.Info)
-        
-        
-
-       
+            setCacheMax(gdal_cache_max)     
         
         QgsMessageLog.logMessage('Tiled dataset with {count} tiles'.format(count=rt), CATEGORY, Qgis.Info)
         
         # Clean up
-        os.remove(org_vrt)
-        os.remove(vrt)
-        os.remove(color_ramp_file)
-        os.remove(terrarium_tile)
+        if cleanup:
+            os.remove(org_vrt)
+            os.remove(vrt)
+            os.remove(color_ramp_file)
+            os.remove(terrarium_tile)
 
-        if job.ftpUpload:
-            shutil.rmtree(temp_folder)
+            if job.ftpUpload:
+                shutil.rmtree(temp_folder)
 
         QgsMessageLog.logMessage('Cleaned up temp files', CATEGORY, Qgis.Info)
         
