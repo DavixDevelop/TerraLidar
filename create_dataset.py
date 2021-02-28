@@ -230,24 +230,6 @@ def genTiles(task, files):
         color_ramp = []
         altitudes = []
         
-        """
-        # Create color ramp
-        f = open(color_ramp_file, "w")
-        rt = 0
-        #cf = len(altitudes)
-        cf = (maxV - minV) * 256
-        for meters in range(minV, maxV):
-            for fraction in range (0, 256):
-                ramp = ColorRamp(meters+(fraction/256))
-                rt += 1
-                f.write('{altitude}\t{red}\t{green}\t{blue}\n'.format(altitude=ramp.altitude, red=ramp.red, green=ramp.green, blue=ramp.blue))
-                task.setProgress(max(0, min(int(((rt * 16) / cf) + 4), 100)))
-                sleep(0.01)
-        f.write('nv\t0\t0\t0\t0')
-        f.close()
-        sleep(0.05)
-        """
-
         # Create color ramp
         for meters in range(minV, maxV):
             for fraction in range (0, 256):
