@@ -310,6 +310,9 @@ def genTiles(task, files):
         lrx = ulx + (dst_ds.RasterXSize * xres)
         lry = uly + (dst_ds.RasterYSize * yres)
 
+        QgsMessageLog.logMessage('The dataset bounds are (in EPSG:3857 [Web Mercator]), minX: {minX}, minZ: {minZ}, maxX: {maxX}, maxZ: {maxZ}'.format(minX=str(ulx),minZ=str(lry),maxX=str(lrx),maxZ=str(uly)), CATEGORY, Qgis.Info)
+        QgsMessageLog.logMessage('Use this info for following step E in Part two: Generating/using your dataset',CATEGORY, Qgis.Info)
+
         base_x = 0
         base_y = 0
 
