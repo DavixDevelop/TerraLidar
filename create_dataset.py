@@ -37,8 +37,8 @@ CATEGORY = 'CreateDataset'
 source_folder = 'C:/Usersd/david\\Documents/Minecraft/Source' # enter direcotry where your source files are
 # enter directory where you want to save the generated files. If you are going to upload the dataset via ftp, you don't need to change this
 output_directory = 'C:/Users/david/Documents/Minecraft/Tiled'
-zoom = 13 # enter your zoom level
-resampling_algorithm = 'near' # use near or more for most accurate color. Look at the resampling algoritm's comparison image on the wiki for other algoritms
+zoom = 15 # enter your zoom level
+resampling_algorithm = 'cubic' # use cubic or more for most accurate color. Look at the resampling algoritm's comparison image on the wiki for other algoritms
 
 ftp_upload = False # Set to True for upload to FTP server
 ftp_s = False # Set to True, if you want to upload to a FTPS server
@@ -50,6 +50,7 @@ ftp_user = None # Leave at None for anonymous login, else set to user name, ex. 
 ftp_password = None # Leave at None for anonymous login, else set to user password, ex. 'password'
 
 cleanup = True # Set to False if you don't wish to delete VRT file and supporting files once the script completes. It will still do a cleanup, if you run the script again
+thread_count = None #Set to the number of threads you want to use. Preferably don't use all threads at once. Leave at at None to use all threads
 
 localThread = threading.local()
 
@@ -137,11 +138,15 @@ class Statistic:
 def genTiles(task, files):
     time_start = datetime.now()
     try:
-        
-        cpu_count = multiprocessing.cpu_count()
+        cpu_count = 1
+        if thread_count is None:
+            cpu_count = multiprocessing.cpu_count()
+        else:
+            cpu_count = thread_count
+
         #cpu_count = min(6, cpu_count)
-        if cpu_count % 2 == 0:
-            cpu_count = int(cpu_count / 2)
+        #if cpu_count % 2 == 0:
+        #    cpu_count = int(cpu_count / 2)
 
         # converted_source = os.path.join(source_folder, "converted").replace("\\","/")
         
@@ -263,6 +268,10 @@ def genTiles(task, files):
                     'Created color ramp file',
                     CATEGORY, Qgis.Info)
 
+        QgsMessageLog.logMessage(
+                    'Rendering vrt to terrarium format. This might take a while',
+                    CATEGORY, Qgis.Info)
+
         dst_ds = gdal.Open(vrt)
         
 
@@ -289,11 +298,19 @@ def genTiles(task, files):
         y_diff = diff
 
         ulx, xres, xskew, uly, yskew, yres = dst_ds.GetGeoTransform()
-        lrx = ulx + (dst_ds.RasterXSize * xres)
-        lry = uly + (dst_ds.RasterYSize * yres)
+        #lrx = ulx + (dst_ds.RasterXSize * xres)
+        #lry = uly + (dst_ds.RasterYSize * yres)
 
-        QgsMessageLog.logMessage('The dataset bounds are (in EPSG:3857 [Web Mercator]), minX: {minX}, minZ: {minZ}, maxX: {maxX}, maxZ: {maxZ}'.format(minX=str(ulx),minZ=str(lry),maxX=str(lrx),maxZ=str(uly)), CATEGORY, Qgis.Info)
-        QgsMessageLog.logMessage('Use this info for following step E in Part two: Generating/using your dataset',CATEGORY, Qgis.Info)
+        info = gdal.Info(dst_ds, format='json')
+
+        ulx, uly = info['cornerCoordinates']['upperLeft'][0:2]
+        lrx, lry = info['cornerCoordinates']['lowerRight'][0:2]
+
+        wgs_minx, wgs_minz = info['wgs84Extent']['coordinates'][0][1][0:2]
+        wgs_maxx, wgs_maxz = info['wgs84Extent']['coordinates'][0][3][0:2]
+
+        QgsMessageLog.logMessage('The dataset bounds are (in WGS84 [EPSG:4326]), minX: {minX}, minZ: {minZ}, maxX: {maxX}, maxZ: {maxZ}'.format(minX=str(wgs_minx),minZ=str(wgs_minz),maxX=str(wgs_maxx),maxZ=str(wgs_maxz)), CATEGORY, Qgis.Info)
+        QgsMessageLog.logMessage('Use this info for following step F in Part two: Generating/using your dataset',CATEGORY, Qgis.Info)
 
         base_x = 0
         base_y = 0
