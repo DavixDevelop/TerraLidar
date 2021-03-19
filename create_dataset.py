@@ -706,10 +706,10 @@ def tilesGenerated(task, res=None):
 s_files = []
 for src in glob.iglob(source_folder + '**/**', recursive=True):
     if src.endswith(".tif") or src.endswith(".tiff"):
-        fl = os.path.join(source_folder, src).replace("\\","/")
-        fileinfo = QFileInfo(fl)
+        src = src.replace("\\","/")
+        fileinfo = QFileInfo(src)
         filename = fileinfo.completeBaseName()
-        s_files.append([os.path.join(source_folder, src).replace("\\","/"), filename])
+        s_files.append([src, filename])
 
 if len(s_files) > 0:
     task = QgsTask.fromFunction('Create elevation dataset', genTiles, on_finished=tilesGenerated, files=s_files)

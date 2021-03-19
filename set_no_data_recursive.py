@@ -60,10 +60,10 @@ files = []
 #Change the asc or xyz extension, to whatever extension your raster data source uses, but first check if gdal can open it.
 for raw_file in glob.iglob(source_directory + '**/**', recursive=True):
     if raw_file.endswith(".tif") or raw_file.endswith(".tiff"):
-        fl = os.path.join(source_directory, raw_file)
-        fileinfo = QFileInfo(fl)
+        raw_file = raw_file.replace("\\","/")
+        fileinfo = QFileInfo(raw_file)
         filename = fileinfo.completeBaseName()
-        files.append([fl, filename])
+        files.append([raw_file, filename])
 
 QgsMessageLog.logMessage('Found {count} files'.format(count=len(files)),CATEGORY, Qgis.Info)
 

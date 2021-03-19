@@ -72,10 +72,10 @@ new_layers = []
 
 for dem in glob.iglob(file_directory + '**/**', recursive=True):
 	if (dem.endswith(".tif")) or (dem.endswith('.TIF')):
-		fn = os.path.join(file_directory, dem)
-		fileinfo = QFileInfo(fn)
+		dem = dem.replace("\\","/")
+		fileinfo = QFileInfo(dem)
 		filename = fileinfo.completeBaseName()
-		newlayer = iface.addRasterLayer(fn, filename)
+		newlayer = iface.addRasterLayer(dem, filename)
 		sleep(0.05)
 		new_layers.append([newlayer, filename])
 		sleep(0.05)
