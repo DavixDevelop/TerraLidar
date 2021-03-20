@@ -3,7 +3,7 @@ import glob
 import os
 import multiprocessing
 import subprocess
-import gdal
+from osgeo import gdal
 from time import sleep
 from qgis.core import QgsProject
 from pathlib import Path

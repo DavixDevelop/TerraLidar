@@ -2,8 +2,8 @@ import math
 import glob
 import os
 import sys
-import gdal
-import gdalconst
+from osgeo import gdal
+from osgeo import gdalconst
 from qgis.utils import iface
 from qgis.core import QgsProject
 from pathlib import Path
