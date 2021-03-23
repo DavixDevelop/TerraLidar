@@ -701,7 +701,10 @@ def tileVrt(job_data, tile_data):
 def tilesGenerated(task, res=None):
     if res is not None:
         time_end = datetime.now()
-        QgsMessageLog.logMessage('Done creating dataset with {count} tiles in {minutes} minutes'.format(count=res[0], minutes=(time_end - res[1]).total_seconds() / 60.0), CATEGORY, Qgis.Info)
+        eclipsed = (time_end - result[1]).total_seconds() / 60.0
+        minutes = math.floor(eclipsed)
+        seconds = math.floor((eclipsed - minutes) * 60)
+        QgsMessageLog.logMessage('Done creating dataset with {count} tiles in {minutes} minutes and {seconds} seconds'.format(count=res[0], minutes=minutes, seconds=seconds), CATEGORY, Qgis.Info)
 
 s_files = []
 for src in glob.iglob(source_folder + '**/**', recursive=True):
