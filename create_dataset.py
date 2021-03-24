@@ -21,6 +21,7 @@ from operator import itemgetter
 import threading
 from ftplib import FTP_TLS
 from ftplib import FTP
+import zipfile
 
 try:
     from PIL import Image
@@ -34,7 +35,7 @@ except ImportError:
 
 CATEGORY = 'CreateDataset'
 
-source_folder = 'C:/Usersd/david\\Documents/Minecraft/Source' # enter direcotry where your source files are
+source_folder = 'C:/Users/david/Documents/Minecraft/Source' # enter direcotry where your source files are
 # enter directory where you want to save the generated files. If you are going to upload the dataset via ftp, you don't need to change this
 output_directory = 'C:/Users/david/Documents/Minecraft/Tiled'
 zoom = 15 # enter your zoom level
@@ -135,6 +136,20 @@ class Statistic:
         self.minV = minV
         self.maxV = maxV  
 
+class FTPArchiveProgress:
+    def __init__(self, totalSize, task):
+        self.totalSize = totalSize
+        self.task = task
+        self.sizeWritten = 0
+        self.lastPr = 0
+
+    def updateProgress(self, block):
+        self.sizeWritten += 1024
+        pr = max(0, min(int(((self.sizeWritten * 40) / self.totalSize) + 60), 100))
+        if (self.lastPr != pr):
+            self.lastPr = pr
+            self.task.setProgress(pr)
+
 def genTiles(task, files):
     time_start = datetime.now()
     try:
@@ -153,9 +168,6 @@ def genTiles(task, files):
         QgsMessageLog.logMessage(
                     'Started creating dataset out of {count} files'.format(count=len(files)),
                     CATEGORY, Qgis.Info)
-                    
-        
-        
         
         org_vrt = os.path.join(source_folder, "OrgSource.vrt").replace("\\","/")
         if os.path.isfile(org_vrt):
@@ -379,7 +391,11 @@ def genTiles(task, files):
             folderx = os.path.join(zoom_folder, str(x)).replace("\\","/")
             os.mkdir(folderx)
 
+        zip_file = os.path.join(zoom_folder, 'RenderedDataset.zip').replace("\\","/")
+        rd_file = None
         if ftp_upload:
+            rd_file = zipfile.ZipFile(zip_file, 'w', zipfile.ZIP_DEFLATED)
+            """
             QgsMessageLog.logMessage('Creating output folders on target ftp server', CATEGORY, Qgis.Info)
             ftp = None
             if ftp_s:
@@ -405,6 +421,7 @@ def genTiles(task, files):
                 ftp.mkd(str(x))
 
             ftp.quit()
+            """
 
         sleep(0.05)
 
@@ -440,9 +457,14 @@ def genTiles(task, files):
             for tile in tiled:
                 res = tileVrt(job, tile)
                 if res is not None:
+                    if job.ftpUpload:
+                        addToZIP(job, res, rd_file)
                     realtiles += 1
                 rt += 1
-                task.setProgress(max(0, min(int(((rt * 80) / cf) + 20), 100)))
+                if not job.ftpUpload:
+                    task.setProgress(max(0, min(int(((rt * 80) / cf) + 20), 100)))
+                else:
+                    task.setProgress(max(0, min(int(((rt * 40) / cf) + 20), 100)))
 
             if getattr(localThread, 'ds', None):
                 del localThread.ds
@@ -462,13 +484,47 @@ def genTiles(task, files):
             realtiles = 0
             for res in tm:
                 if res is not None:
+                    if job.ftpUpload:
+                        addToZIP(job, res, rd_file)
                     realtiles += 1
                 rt += 1
-                task.setProgress(max(0, min(int(((rt * 80) / cf) + 20), 100)))
+                if not job.ftpUpload:
+                    task.setProgress(max(0, min(int(((rt * 80) / cf) + 20), 100)))
+                else:
+                    task.setProgress(max(0, min(int(((rt * 40) / cf) + 20), 100)))
 
             setCacheMax(gdal_cache_max)     
         
-        QgsMessageLog.logMessage('Tiled dataset with {count} tiles'.format(count=rt), CATEGORY, Qgis.Info)
+        if not job.ftpUpload:
+            QgsMessageLog.logMessage('Tiled dataset with {count} tiles'.format(count=rt), CATEGORY, Qgis.Info)
+        else:
+            rd_file.close()
+            totalSize = os.path.getsize(zip_file)
+            QgsMessageLog.logMessage('Starting uploading renderned archive ({size} GB) out of {count} tiles'.format(count=rt, size=str(round(totalSize * 9.3132257461548E-10, 4))), CATEGORY, Qgis.Info)
+
+            ftp = None
+            if job.ftpS:
+                ftp = FTP_TLS()
+            else:
+                ftp = FTP()
+            ftp.connect(job.ftpUrl, job.ftpPort)
+
+            if job.ftpUser is None or job.ftpPassword is None:
+                ftp.login()
+            else:
+                ftp.login(user=job.ftpUser, passwd=job.ftpPassword)
+
+            if job.ftpFolder is not None:
+                ftp.cwd(job.ftpFolder)
+
+            ftapr = FTPArchiveProgress(int(totalSize), task)
+
+            with open(zip_file, 'rb') as rdf_file:
+                ftp.storbinary('STOR RenderedDataset.zip', rdf_file, blocksize=1024, callback=ftapr.updateProgress)
+
+            ftp.quit()
+
+            QgsMessageLog.logMessage('Uploaded rendered dataset archive RenderedDataset.zip. You can now unzip it.'.format(count=rt), CATEGORY, Qgis.Info)
         
         # Clean up
         if cleanup:
@@ -480,7 +536,7 @@ def genTiles(task, files):
             if job.ftpUpload:
                 shutil.rmtree(temp_folder)
 
-        QgsMessageLog.logMessage('Cleaned up temp files', CATEGORY, Qgis.Info)
+            QgsMessageLog.logMessage('Cleaned up temp files', CATEGORY, Qgis.Info)
         
         
 
@@ -530,6 +586,16 @@ def isFTPDir(ftp, name):
       return True
    except:
       return False
+
+def addToZIP(job_data, tile_data, rd_file):
+    folder = os.path.join(job_data.zoom_folder, tile_data.x).replace("\\","/")
+    tileName = tile_data.y + ".png"
+    tile_file =  os.path.join(folder, tileName).replace("\\","/")
+
+    #Add tile to zip
+    rd_file.write(tile_file, os.path.join(job_data.zoom_level, str(tile_data.x), str(tile_data.y) + ".png"))
+    #Remove tile from TEMP
+    os.remove(tile_file)
 
 # Modified version of scale_query_to_tile from gdal2tiles
 #https://github.com/OSGeo/gdal/blob/master/gdal/swig/python/scripts/gdal2tiles.py
@@ -666,6 +732,7 @@ def tileVrt(job_data, tile_data):
         if os.path.isfile(xmlFile):
             os.remove(xmlFile)
 
+        """
         if job_data.ftpUpload:
             ftp = None
             if job_data.ftpS:
@@ -688,15 +755,14 @@ def tileVrt(job_data, tile_data):
 
             ftp.quit()
             os.remove(tile)
-
-
+        """
 
         sleep(0.01)
     except Exception as e:
         QgsMessageLog.logMessage('Tiled vrt error: ' + str(e), CATEGORY, Qgis.Info)
         return None
 
-    return True
+    return tile_data
 
 def tilesGenerated(task, res=None):
     if res is not None:
