@@ -150,7 +150,7 @@ class FTPArchiveProgress:
             self.lastPr = pr
             self.task.setProgress(pr)
 
-def genTiles(task, files):
+def genTiles(task):
     time_start = datetime.now()
     try:
         cpu_count = 1
@@ -158,6 +158,17 @@ def genTiles(task, files):
             cpu_count = multiprocessing.cpu_count()
         else:
             cpu_count = thread_count
+
+        files = []
+        for src in glob.iglob(source_folder + '**/**', recursive=True):
+            if src.endswith(".tif") or src.endswith(".tiff"):
+                src = src.replace("\\","/")
+                fileinfo = QFileInfo(src)
+                filename = fileinfo.completeBaseName()
+                files.append([src, filename])
+
+        if len(files) == 0:
+            return [0, time_start]
 
         #cpu_count = min(6, cpu_count)
         #if cpu_count % 2 == 0:
@@ -772,14 +783,5 @@ def tilesGenerated(task, res=None):
         seconds = math.floor((eclipsed - minutes) * 60)
         QgsMessageLog.logMessage('Done creating dataset with {count} tiles in {minutes} minutes and {seconds} seconds'.format(count=res[0], minutes=minutes, seconds=seconds), CATEGORY, Qgis.Info)
 
-s_files = []
-for src in glob.iglob(source_folder + '**/**', recursive=True):
-    if src.endswith(".tif") or src.endswith(".tiff"):
-        src = src.replace("\\","/")
-        fileinfo = QFileInfo(src)
-        filename = fileinfo.completeBaseName()
-        s_files.append([src, filename])
-
-if len(s_files) > 0:
-    task = QgsTask.fromFunction('Create elevation dataset', genTiles, on_finished=tilesGenerated, files=s_files)
-    QgsApplication.taskManager().addTask(task)
+task = QgsTask.fromFunction('Create elevation dataset', genTiles, on_finished=tilesGenerated)
+QgsApplication.taskManager().addTask(task)
