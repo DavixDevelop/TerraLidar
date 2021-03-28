@@ -714,7 +714,7 @@ def tileVrt(job_data, tile_data):
 
             ##Check if transparent
             if len(alphamask) == alphamask.count('\x00'.encode('ascii')):
-                return False
+                return None
 
             data = ds.ReadRaster(tile_data.rx, tile_data.ry, tile_data.rxsize, tile_data.rysize, tile_data.wxsize, tile_data.wysize, band_list=list(range(1, job_data.bandsCount + 1)))
 
