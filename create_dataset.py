@@ -193,10 +193,9 @@ def genTiles(task):
         ds.FlushCache()
         ds = None
         sleep(0.05)
-
-
+        
         QgsMessageLog.logMessage(
-                    'Created original vrt'.format(count=len(files)),
+                    'Created original vrt',
                     CATEGORY, Qgis.Info)
 
         vrt = os.path.join(source_folder, "Source.vrt").replace("\\","/")
@@ -719,7 +718,7 @@ def tileVrt(job_data, tile_data):
             data = ds.ReadRaster(tile_data.rx, tile_data.ry, tile_data.rxsize, tile_data.rysize, tile_data.wxsize, tile_data.wysize, band_list=list(range(1, job_data.bandsCount + 1)))
 
         if data:
-            if  tile_data.querysize == 255:
+            if  tile_data.querysize == 256:
                 dstile.WriteRaster(tile_data.wx, tile_data.wy, tile_data.wxsize, tile_data.wysize, data,
                                    band_list=list(range(1, job_data.bandsCount + 1)))
                 dstile.WriteRaster(tile_data.wx, tile_data.wy, tile_data.wxsize, tile_data.wysize, alphamask, band_list=[tilebands])
