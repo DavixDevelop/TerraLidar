@@ -16,7 +16,6 @@ dem_directory = "C:\\Users\\david\\Documents\\Minecraft\\DEM" #enter directory w
 
 
 def processFiles(task, filesData):
-	result=len(filesData)
 	QgsMessageLog.logMessage(
 				'Started processing {count} files'.format(count=len(filesData)),
 				CATEGORY, Qgis.Info)
@@ -25,10 +24,13 @@ def processFiles(task, filesData):
 	ex = concurrent.futures.ThreadPoolExecutor(max_workers=cpu_count)
 	f = ex.map(processFile, filesData)
 	p = 0
+	result = 0
 	for res in f:
-		QgsMessageLog.logMessage(
-				'Processed file {name}'.format(name=res),
-				CATEGORY, Qgis.Info)
+		if res in not None
+			QgsMessageLog.logMessage(
+					'Processed file {name}'.format(name=res),
+					CATEGORY, Qgis.Info)
+			result += 1
 		p += 1
 		task.setProgress(int((p * 100) / len(filesData)))
 		sleep(0.05)
@@ -40,15 +42,21 @@ def filesProccesed(task, result=None):
 
 
 def processFile(file_data):
-	tileName = file_data[1] + ".tif"
-	tile = os.path.join(dem_directory, tileName)
-	ds = gdal.Open(file_data[0])
-	sleep(0.05)
-	#Visit https://gdal.org/python/osgeo.gdal-module.html#TranslateOptions to see other options, like width and height for a higher resolution
-	ds = gdal.Translate(tile,ds,format="GTiff",resampleAlg="cubic")
-	ds = None
-	sleep(0.05)
-	return file_data[1]
+	try:
+		tileName = file_data[1] + ".tif"
+		tile = os.path.join(dem_directory, tileName)
+		ds = gdal.Open(file_data[0])
+		sleep(0.05)
+		#Visit https://gdal.org/python/osgeo.gdal-module.html#TranslateOptions to see other options, like width and height for a higher resolution
+		ds = gdal.Translate(tile,ds,format="GTiff",resampleAlg="cubic")
+		ds = None
+		sleep(0.05)
+		return file_data[1]
+	except Exception as e:
+		QgsMessageLog.logMessage('Error while converting {file}, Error: {er}'.format(file=file_data[1], er=str(e)),CATEGORY, Qgis.Info)
+
+	return None
+	
 
 files = []
 
