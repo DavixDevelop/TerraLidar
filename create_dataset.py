@@ -47,7 +47,7 @@ ftp_upload_url = '' # FTP url to upload to (Only IP address or domain, ex 192.16
 ftp_upload_port = 21 # FTP port, ex. 2121. Must be set
 # FTP folder to upload zoom folder to, ex. 'Dataset/Tiled'. Leave at None if you want to upload zoom folder to ftp server root
 ftp_upload_folder = None
-ftp_user = None # Leave at None for anonymous login, else set to user name, ex. 'davix' 
+ftp_user = None # Leave at None for anonymous login, else set to user name, ex. 'davix'
 ftp_password = None # Leave at None for anonymous login, else set to user password, ex. 'password'
 
 cleanup = True # Set to False if you don't wish to delete VRT file and supporting files once the script completes. It will still do a cleanup, if you run the script again
@@ -141,7 +141,7 @@ class ColorRamp:
 class Statistic:
     def __init__(self, minV, maxV):
         self.minV = minV
-        self.maxV = maxV  
+        self.maxV = maxV
 
 class FTPArchiveProgress:
     def __init__(self, totalSize, task):
@@ -182,25 +182,25 @@ def genTiles(task):
         #    cpu_count = int(cpu_count / 2)
 
         # converted_source = os.path.join(source_folder, "converted").replace("\\","/")
-        
+
         QgsMessageLog.logMessage(
                     'Started creating dataset out of {count} files'.format(count=len(files)),
                     CATEGORY, Qgis.Info)
-        
+
         org_vrt = os.path.join(source_folder, "OrgSource.vrt").replace("\\","/")
         if os.path.isfile(org_vrt):
             os.remove(org_vrt)
 
-        
+
         org_files = []
         for file in files:
             org_files.append(file[0])
-        
+
         ds = gdal.BuildVRT(org_vrt, org_files,resolution="highest",resampleAlg="cubic")
         ds.FlushCache()
         ds = None
         sleep(0.05)
-        
+
         QgsMessageLog.logMessage(
                     'Created original vrt',
                     CATEGORY, Qgis.Info)
@@ -268,12 +268,12 @@ def genTiles(task):
             os.remove(color_ramp_file)
         color_ramp = []
         altitudes = []
-        
+
         # Create color ramp
         for meters in range(minV, maxV):
             for fraction in range (0, 256):
                 altitudes.append(meters+(fraction/256))
-        
+
         exx = concurrent.futures.ThreadPoolExecutor(max_workers=cpu_count)
         ff= exx.map(createRamp, altitudes)
         for res in ff:
@@ -307,20 +307,20 @@ def genTiles(task):
                     CATEGORY, Qgis.Info)
 
         dst_ds = gdal.Open(vrt)
-        
+
 
         ds = gdal.DEMProcessing(terrarium_tile, dst_ds, 'color-relief', colorFilename=color_ramp_file, format="VRT", addAlpha=True)
         sleep(0.05)
 
-        
+
         dst_ds = None
-        
+
         QgsMessageLog.logMessage(
                     'Created vrt in terrarium format',
                     CATEGORY, Qgis.Info)
 
         input_file = terrarium_tile
-        
+
         QgsMessageLog.logMessage('Input file is {inp}'.format(inp=input_file), CATEGORY, Qgis.Info)
         dst_ds = gdal.Open(input_file, gdal.GA_ReadOnly)
 
@@ -391,9 +391,9 @@ def genTiles(task):
             start_tile_x -= 1
         if start_tile_y > 0:
             start_tile_y -= 1
-        
+
         QgsMessageLog.logMessage('Start tile: {tx} ({mlon}), {ty} ({mxlat}), Tiles to generate: {xt} (Width: {xtx} Height: {xty})'.format(tx=start_tile_x, mlon=min_x, ty=start_tile_y, mxlat=max_y, xt=((x_tiles + 1) * (y_tiles + 1)), xtx=x_tiles,xty=y_tiles), CATEGORY, Qgis.Info)
-        
+
         QgsMessageLog.logMessage('Creating output folders', CATEGORY, Qgis.Info)
 
         mx = start_tile_x + x_tiles
@@ -443,7 +443,7 @@ def genTiles(task):
                     ftp.mkd(str(x))
 
                 ftp.quit()
-            
+
 
         sleep(0.01)
 
@@ -456,7 +456,7 @@ def genTiles(task):
         sub_max_x = min_x + x_diff
         for x in range(start_tile_x, start_tile_x + x_tiles):
             sub_min_y = max_y - y_diff
-            sub_max_y = max_y 
+            sub_max_y = max_y
             for y in range(start_tile_y, start_tile_y + y_tiles):
                 tiled.append(Tile(dst_ds, str(x), str(y), sub_min_x, sub_max_y, sub_max_x, sub_min_y, ulx, xres, uly, yres, querysize=1024))
                 sub_min_y -= y_diff
@@ -467,7 +467,7 @@ def genTiles(task):
         job = Job(zoom_folder, str(zoom), input_file, getBands(dst_ds), resampling_algorithm, ftp_upload, ftp_one_file, ftp_s ,ftp_upload_url, ftp_upload_port, ftp_upload_folder, ftp_user, ftp_password)
 
         dst_ds = None
-            
+
         # Tile the dataset
 
         realtiles = 0
@@ -498,7 +498,7 @@ def genTiles(task):
             gdal_cache_max_per_process = max(1024 * 1024, math.floor(gdal_cache_max / cpu_count))
             setCacheMax(gdal_cache_max_per_process)
 
-            
+
             tpe = concurrent.futures.ThreadPoolExecutor(max_workers=cpu_count)
             tm = tpe.map(tileVrt, repeat(job), tiled)
             rt = 0
@@ -515,8 +515,8 @@ def genTiles(task):
                 else:
                     task.setProgress(max(0, min(int(((rt * 80) / cf) + 20), 100)))
 
-            setCacheMax(gdal_cache_max)     
-        
+            setCacheMax(gdal_cache_max)
+
         if job.ftpUpload and job.ftpOnefile:
             rd_file.close()
             totalSize = os.path.getsize(zip_file)
@@ -549,7 +549,7 @@ def genTiles(task):
             QgsMessageLog.logMessage('Tiled and uploaded dataset with {count} tiles to ftp server'.format(count=realtiles), CATEGORY, Qgis.Info)
         else:
             QgsMessageLog.logMessage('Tiled dataset with {count} tiles'.format(count=realtiles), CATEGORY, Qgis.Info)
-        
+
         # Clean up
         if cleanup:
             os.remove(org_vrt)
@@ -561,8 +561,8 @@ def genTiles(task):
                 shutil.rmtree(temp_folder)
 
             QgsMessageLog.logMessage('Cleaned up temp files', CATEGORY, Qgis.Info)
-        
-        
+
+
 
         return [realtiles, time_start]
     except Exception as e:
@@ -591,14 +591,14 @@ def createRamp(altitude):
 def calculateStat(tile):
     try:
         stat_ds = gdal.Open(tile)
-                
+
         band = stat_ds.GetRasterBand(1)
-        
+
         if band.GetMinimum() is None or band.GetMaximum() is None:
                 band.ComputeStatistics(0)
 
         minV = int(math.floor(band.GetMinimum()))
-        maxV = int(math.ceil(band.GetMaximum())) 
+        maxV = int(math.ceil(band.GetMaximum()))
 
         stat_ds = None
 
@@ -713,7 +713,7 @@ def tileVrt(job_data, tile_data):
         tile =  os.path.join(folder, tileName).replace("\\","/")
 
         tilebands = job_data.bandsCount + 1
-        
+
         ds_cache = getattr(localThread, 'ds', None)
         if ds_cache:
             ds = ds_cache
@@ -752,17 +752,17 @@ def tileVrt(job_data, tile_data):
                 del dsquery
 
         del data
-        
+
         if job_data.resampling != 'antialias':
             out_drv.CreateCopy(tile, dstile, strict=0)
-        
+
         del dstile
 
         xmlFile = os.path.join(folder, tile_data.y + '.png.aux.xml')
         if os.path.isfile(xmlFile):
             os.remove(xmlFile)
 
-        
+
         if job_data.ftpUpload and not job_data.ftpOnefile:
             ftp = None
             if job_data.ftpS:
@@ -785,7 +785,7 @@ def tileVrt(job_data, tile_data):
 
             ftp.quit()
             os.remove(tile)
-        
+
 
         sleep(0.01)
     except Exception as e:
@@ -797,7 +797,7 @@ def tileVrt(job_data, tile_data):
 def tilesGenerated(task, res=None):
     if res is not None:
         time_end = datetime.now()
-        eclipsed = (time_end - result[1]).total_seconds() / 60.0
+        eclipsed = (time_end - res[1]).total_seconds() / 60.0
         minutes = math.floor(eclipsed)
         seconds = math.floor((eclipsed - minutes) * 60)
         QgsMessageLog.logMessage('Done creating dataset with {count} tiles in {minutes} minutes and {seconds} seconds'.format(count=res[0], minutes=minutes, seconds=seconds), CATEGORY, Qgis.Info)
