@@ -406,12 +406,12 @@ def genTiles(task):
                 shutil.rmtree(temp_folder)
             os.mkdir(temp_folder)
             zoom_folder = os.path.join(temp_folder ,str(zoom)).replace("\\","/")
-        if os.path.isdir(zoom_folder):
-            shutil.rmtree(zoom_folder)
-        os.mkdir(zoom_folder)
+        if not os.path.isdir(zoom_folder):
+            os.mkdir(zoom_folder)
         for x in range(start_tile_x, mx):
             folderx = os.path.join(zoom_folder, str(x)).replace("\\","/")
-            os.mkdir(folderx)
+            if not os.path.isdir(folderx):
+                os.mkdir(folderx)
 
         zip_file = os.path.join(zoom_folder, 'RenderedDataset.zip').replace("\\","/")
         rd_file = None
