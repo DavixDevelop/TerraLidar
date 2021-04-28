@@ -26,7 +26,7 @@ def processFiles(task, filesData):
 	p = 0
 	result = 0
 	for res in f:
-		if res in not None
+		if res is not None:
 			QgsMessageLog.logMessage(
 					'Processed file {name}'.format(name=res),
 					CATEGORY, Qgis.Info)
