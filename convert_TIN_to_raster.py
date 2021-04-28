@@ -20,12 +20,21 @@ source_delimiter = ' ' #Set the delimiter in the xyz or asc file, ex ',' or ';'.
 #This script assumes that each row in the source file contains the colums in the next order: x, y, z
 dem_directory = "C:/Users/david/Documents/Minecraft/DEM" #enter directory where you want to save the converted dem files
 
+#These two options must be set, as gdal.Grid only outputs a small 256x256 image by default.
+#If you have trouble finding out the image size, set the size to 256, set cleanup to 'False', run the script and drag & drop
+#one vrt file into QGIS. Study the distance between points and the overall extent of the image, and decide the image width and height
+#ex. if the extent of the image is 1000m x 1000m, and the averge distance between points is 1m, the size of the raster would be 1000x1000 pixels
+raster_width = 1000 #Set image width
+raster_height = 1000 #Set image height
+
 recursive = False #Set to True if you want the script to also scan for files in sub-folders
 thread_count = None #Set to the number of threads you want to use. Preferably don't use all threads at once. Leave at at None to use all threads
 
 #See https://gdal.org/programs/gdal_grid.html#invdist for explanation
 power = 2.0 #Set power of the invdist algorithm. Leave at 2.0 for default setting
 smoothing = 0.0 #Set the smoothing of the invdist algorithm. Leave at 0.0 for no smoothing
+
+cleanup = True # Set to False if you don't wish to delete VRT and CSV files once the script completes. It will still do a cleanup, if you run the script again
 
 gdal.UseExceptions()
 
@@ -35,11 +44,13 @@ class FileData:
         self.fileName = fileName
 
 class Job:
-    def __init__(self, powerVal, smoothingVal, sourceEpsg, sourceDel):
+    def __init__(self, powerVal, smoothingVal, sourceEpsg, sourceDel, tileWidth, tileHeight):
         self.powerVal = powerVal
         self.smoothingVal = smoothingVal
         self.sourceEpsg = sourceEpsg
         self.sourceDel = sourceDel
+        self.tileWidth = tileWidth
+        self.tileHeight = tileHeight
 
 def processFiles(task):
     time_start = datetime.now()
@@ -77,7 +88,7 @@ def processFiles(task):
     else:
         cpu_count = thread_count
 
-    job = Job(power, smoothing, source_epsg, source_delimiter)
+    job = Job(power, smoothing, source_epsg, source_delimiter, raster_width, raster_height)
 
     ex = concurrent.futures.ThreadPoolExecutor(max_workers=cpu_count)
     f = ex.map(processFile, repeat(job), filesData)
@@ -158,7 +169,7 @@ def processFile(job_data, file_data):
         vrts = gdal.OpenEx(vrt_file, 0)
 
         #Visit https://gdal.org/python/osgeo.gdal-module.html#GridOptions to see other options, like width and height for a higher resolution
-        option = gdal.GridOptions(format='GTiff',outputSRS=job_data.sourceEpsg,algorithm='invdist:power={pow}:smoothing={smo}'.format(pow=job_data.powerVal,smo=job_data.smoothingVal),zfield='field_3')
+        option = gdal.GridOptions(format='GTiff',width=job_data.tileHeight,height=job_data.tileWidth,outputSRS=job_data.sourceEpsg,algorithm='invdist:power={pow}:smoothing={smo}'.format(pow=job_data.powerVal,smo=job_data.smoothingVal),zfield='field_3')
         #Interapolate TIN to a grid
         ds = gdal.Grid(tile,vrts,options=option)
         ds = None
@@ -167,8 +178,9 @@ def processFile(job_data, file_data):
         vrts = None
 
         #Remove csv and vrt file
-        os.remove(csv_file)
-        os.remove(vrt_file)
+        if cleanup:
+            os.remove(csv_file)
+            os.remove(vrt_file)
 
         sleep(0.05)
         return file_data
