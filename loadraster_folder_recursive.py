@@ -80,7 +80,7 @@ for dem in glob.iglob(file_directory + '**/**', recursive=True):
 		new_layers.append([newlayer, filename])
 		sleep(0.05)
 		QgsMessageLog.logMessage(
-			'Added layer for {layername}'.format(layername=fn),
+			'Added layer for {layername}'.format(layername=filename),
 			CATEGORY, Qgis.Info)
 		sleep(0.05)
 
