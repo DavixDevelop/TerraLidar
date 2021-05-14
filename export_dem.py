@@ -113,8 +113,7 @@ def processFile(job_data, file_data):
         sleep(0.05)
 
     try:
-        dst_ds = gdal.Open(input_file, gdal.GA_ReadOnly)
-
+        dst_ds = gdal.Open(file_name, gdal.GA_ReadOnly)
         rb = dst_ds.GetRasterBand(1)
 
         if rb.GetNoDataValue() is None:
