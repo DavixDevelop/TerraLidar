@@ -196,7 +196,7 @@ def genTiles(task):
         for file in files:
             org_files.append(file[0])
 
-        ds = gdal.BuildVRT(org_vrt, org_files,resolution="highest",resampleAlg="cubic")
+        ds = gdal.BuildVRT(org_vrt, org_files,resolution="highest",resampleAlg="bilinear")
         ds.FlushCache()
         ds = None
         sleep(0.05)
