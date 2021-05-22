@@ -32,7 +32,7 @@ class Job:
         self.defNoData = defNoData
 
 class FileData:
-    def __init__(self, fileName, filePath):
+    def __init__(self, filePath, fileName):
         self.fileName = fileName
         self.filePath = filePath
 
@@ -93,7 +93,7 @@ def filesProccesed(task, result=None):
 
 
 def processFile(job_data, file_data):
-    file_name = os.path.join(job_data.demDir, "{filename}.tif".format(filename=file_data.fileName))
+    file_name = os.path.join(job_data.demDir, "{filename}.tif".format(filename=file_data.fileName)).replace("\\","/")
 
     if job_data.extractGround:
         subprocess.check_output('\"{cloud}\" -SILENT -O -GLOBAL_SHIFT AUTO  \"{file}\" -CSF -SCENES SLOPE -CLOTH_RESOLUTION 0.5 -CLASS_THRESHOLD 0.5 -RASTERIZE -GRID_STEP 1 -VERT_DIR 2 -PROJ MIN -SF_PROJ AVG -EMPTY_FILL INTERP -OUTPUT_RASTER_Z'.format(cloud=job_data.cloudCompare, file=file_data.filePath), cwd=job_data.srcDir, shell=True)
