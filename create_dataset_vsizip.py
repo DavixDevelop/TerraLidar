@@ -33,14 +33,14 @@ except ImportError:
 
 
 CATEGORY = 'CreateDataset'
-
-source_folder = 'C:/Users/david/Documents/Minecraft/Source' # enter direcotry where your source files are
+source_file_name = 'NameOfRasterInsideArchive.tif' #enter the name of source file inside the archive
+source_file = 'C:/Users/david/Documents/Minecraft/Source/Source.zip' # enter path of your source archive (!!!use /)
 # enter directory where you want to save the generated files. If you are going to upload the dataset via ftp, you don't need to change this
 output_directory = 'C:/Users/david/Documents/Minecraft/Tiled'
-zoom = 15 # enter your zoom level
+zoom = 12 # enter your zoom level
 resampling_algorithm = 'cubic' # use cubic or more for most accurate color. Look at the resampling algoritm's comparison image on the wiki for other algoritms
-manual_nodata_value = None #Leave at None, to use the defined NODATA value of the source file, or set it to value, if your source file doesn't have NODATA defined
-convert_feet_to_meters = False #Set to True, if your dataset heights are in feet
+manual_nodata_value = 0 #Leave at None, to use the defined NODATA value of the source file, or set it to value, if your source file doesn't have NODATA defined
+convert_feet_to_meters = True #Set to True, if your dataset heights are in feet
 
 ftp_upload = False # Set to True for upload to FTP server
 ftp_one_file = False #Set to True to upload one zip file (RenderedDataset.zip) to FTP server
@@ -52,8 +52,8 @@ ftp_upload_folder = None
 ftp_user = None # Leave at None for anonymous login, else set to user name, ex. 'davix'
 ftp_password = None # Leave at None for anonymous login, else set to user password, ex. 'password'
 
-cleanup = True # Set to False if you don't wish to delete VRT file and supporting files once the script completes. It will still do a cleanup, if you run the script again
-thread_count = None #Set to the number of threads you want to use. Preferably don't use all threads at once. Leave at at None to use all threads
+cleanup = False # Set to False if you don't wish to delete VRT file and supporting files once the script completes. It will still do a cleanup, if you run the script again
+thread_count = 6 #Set to the number of threads you want to use. Preferably don't use all threads at once. Leave at at None to use all threads
 
 localThread = threading.local()
 
@@ -129,12 +129,12 @@ class Job:
         self.ftpPassword = ftpPassword
 
 class ColorRamp:
-    def __init__(self, altitude, cftm):
+    def __init__(self, altitude, ctft):
         v = None
-        if cftm:
-            v = altitude * 0
-        else:
+        if ctft:
             v = altitude * 0.3048
+        else:
+            v = altitude
         v += 32768
         r = math.floor(v/256)
         g = math.floor(v % 256)
@@ -172,15 +172,13 @@ def genTiles(task):
         else:
             cpu_count = thread_count
 
-        files = []
-        for src in glob.iglob(source_folder + '**/**', recursive=True):
-            if src.endswith(".tif") or src.endswith(".tiff"):
-                src = src.replace("\\","/")
-                fileinfo = QFileInfo(src)
-                filename = fileinfo.completeBaseName()
-                files.append([src, filename])
-
-        if len(files) == 0:
+        s_file = None
+        if source_file.endswith(".zip"):
+            src = source_file.replace("\\","/")
+            fileinfo = QFileInfo(src)
+            filename = fileinfo.completeBaseName()
+            s_file = [src, filename]
+        else:
             return [0, time_start]
 
         #cpu_count = min(6, cpu_count)
@@ -190,8 +188,10 @@ def genTiles(task):
         # converted_source = os.path.join(source_folder, "converted").replace("\\","/")
 
         QgsMessageLog.logMessage(
-                    'Started creating dataset out of {count} files'.format(count=len(files)),
+                    'Started creating dataset from {name}'.format(name=s_file[1]),
                     CATEGORY, Qgis.Info)
+
+        source_folder = os.path.dirname(source_file)
 
         org_vrt = os.path.join(source_folder, "OrgSource.vrt").replace("\\","/")
         if os.path.isfile(org_vrt):
@@ -199,8 +199,11 @@ def genTiles(task):
 
 
         org_files = []
-        for file in files:
-            org_files.append(file[0])
+        c_file = '/vsizip/{archive}/{file}'.format(archive=s_file[0],file=source_file_name)
+        QgsMessageLog.logMessage(
+                    c_file,
+                    CATEGORY, Qgis.Info)
+        org_files.append(c_file)
 
         ds = gdal.BuildVRT(org_vrt, org_files,resolution="highest",resampleAlg="bilinear")
         ds.FlushCache()
@@ -220,7 +223,7 @@ def genTiles(task):
         pds = None
 
         QgsMessageLog.logMessage(
-                    'Created reporojected vrt'),
+                    'Created reporojected vrt',
                     CATEGORY, Qgis.Info)
 
         terrarium_tile =  os.path.join(source_folder, "TerrariumSource.vrt").replace("\\","/")
@@ -232,17 +235,15 @@ def genTiles(task):
 
         task.setProgress(0)
 
-        exxf = concurrent.futures.ThreadPoolExecutor(max_workers=cpu_count)
-        fff= exxf.map(calculateStat, org_files)
-        rt = 0
-        cf = len(org_files)
-        for res in fff:
-            if res is not None:
-                rt += 1
-                statistics.append(res)
-                task.setProgress(max(0, min(int((rt * 12) / cf), 100)))
-            else:
-                cf -= 1
+        ress = calculateStat(c_file)
+        sleep(0.05)
+        if ress is not None:
+            statistics.append(ress)
+            task.setProgress(12)
+        else:
+            return [0, time_start]
+
+        ress = None
 
         org_files = None
 
@@ -266,7 +267,8 @@ def genTiles(task):
         if minV is None or maxV is None:
             QgsMessageLog.logMessage('Error: Minimum and maximum height are None',CATEGORY, Qgis.Info)
             return None
-
+        else:
+            QgsMessageLog.logMessage('Minimum and maximum height are {minv} and {maxv}'.format(minv=minV,maxv=maxV),CATEGORY, Qgis.Info)
         statistics = None
 
         color_ramp_file = os.path.join(source_folder, "TerrariumSource.txt").replace("\\","/")
@@ -595,8 +597,8 @@ def getBands(src_ds):
         bandsCount = src_ds.RasterCount
     return bandsCount
 
-def createRamp(altitude, cftm):
-        return ColorRamp(altitude, cftm)
+def createRamp(ctft, altitude):
+        return ColorRamp(altitude, ctft)
 
 def calculateStat(tile):
     try:
