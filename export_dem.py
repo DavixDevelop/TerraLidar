@@ -79,9 +79,10 @@ def processFiles(task):
     f = ex.map(processFile, repeat(job), filesData)
     p = 0
     for res in f:
-        QgsMessageLog.logMessage(
-                'Processed file {name}'.format(name=res),
-                CATEGORY, Qgis.Info)
+        if res is not None:
+            QgsMessageLog.logMessage(
+                    'Processed file {name}'.format(name=res),
+                    CATEGORY, Qgis.Info)
         p += 1
         task.setProgress(int((p * 100) / len(filesData)))
         sleep(0.05)
@@ -95,22 +96,28 @@ def filesProccesed(task, result=None):
 def processFile(job_data, file_data):
     file_name = os.path.join(job_data.demDir, "{filename}.tif".format(filename=file_data.fileName)).replace("\\","/")
 
-    if job_data.extractGround:
-        subprocess.check_output('\"{cloud}\" -SILENT -O -GLOBAL_SHIFT AUTO  \"{file}\" -CSF -SCENES SLOPE -CLOTH_RESOLUTION 0.5 -CLASS_THRESHOLD 0.5 -RASTERIZE -GRID_STEP 1 -VERT_DIR 2 -PROJ MIN -SF_PROJ AVG -EMPTY_FILL INTERP -OUTPUT_RASTER_Z'.format(cloud=job_data.cloudCompare, file=file_data.filePath), cwd=job_data.srcDir, shell=True)
-        sleep(0.05)
-        for old_tif in Path(source_directory).rglob('{filename}_ground_points*.tif'.format(filename=file_data.fileName)):
-            os.rename(old_tif, os.path.join(source_directory, "{filename}.tif".format(filename=file_data.fileName)))
-        for other_tif in Path(source_directory).rglob('{filename}_*.tif'.format(filename=file_data.fileName)):
-            os.remove(other_tif)
-        os.rename(os.path.join(source_directory, "{filename}.tif".format(filename=file_data.fileName)), file_name)
-        sleep(0.05)
-    else:
-        subprocess.check_output('\"{cloud}\" -SILENT -O -GLOBAL_SHIFT AUTO  \"{file}\" -RASTERIZE -GRID_STEP 1 -VERT_DIR 2 -PROJ MIN -SF_PROJ AVG -EMPTY_FILL INTERP -OUTPUT_RASTER_Z'.format(cloud=job_data.cloudCompare,file=file_data.filePath), cwd=job_data.srcDir, shell=True)
-        sleep(0.05)
-        for old_tif in Path(source_directory).rglob('{filename}_*.tif'.format(filename=file_data.fileName)):
-            os.rename(old_tif, os.path.join(source_directory, "{filename}.tif".format(filename=file_data.fileName)))
-        os.rename(os.path.join(source_directory, "{filename}.tif".format(filename=file_data.fileName)), file_name)
-        sleep(0.05)
+    try:
+
+        if job_data.extractGround:
+            subprocess.check_output('\"{cloud}\" -SILENT -O -GLOBAL_SHIFT AUTO  \"{file}\" -CSF -SCENES SLOPE -CLOTH_RESOLUTION 0.5 -CLASS_THRESHOLD 0.5 -RASTERIZE -GRID_STEP 1 -VERT_DIR 2 -PROJ MIN -SF_PROJ AVG -EMPTY_FILL INTERP -OUTPUT_RASTER_Z'.format(cloud=job_data.cloudCompare, file=file_data.filePath), cwd=job_data.srcDir, shell=True)
+            sleep(0.05)
+            for old_tif in Path(source_directory).rglob('{filename}_ground_points*.tif'.format(filename=file_data.fileName)):
+                os.rename(old_tif, os.path.join(source_directory, "{filename}.tif".format(filename=file_data.fileName)))
+            for other_tif in Path(source_directory).rglob('{filename}_*.tif'.format(filename=file_data.fileName)):
+                os.remove(other_tif)
+            os.rename(os.path.join(source_directory, "{filename}.tif".format(filename=file_data.fileName)), file_name)
+            sleep(0.05)
+        else:
+            subprocess.check_output('\"{cloud}\" -SILENT -O -GLOBAL_SHIFT AUTO  \"{file}\" -RASTERIZE -GRID_STEP 1 -VERT_DIR 2 -PROJ MIN -SF_PROJ AVG -EMPTY_FILL INTERP -OUTPUT_RASTER_Z'.format(cloud=job_data.cloudCompare,file=file_data.filePath), cwd=job_data.srcDir, shell=True)
+            sleep(0.05)
+            for old_tif in Path(source_directory).rglob('{filename}_*.tif'.format(filename=file_data.fileName)):
+                os.rename(old_tif, os.path.join(source_directory, "{filename}.tif".format(filename=file_data.fileName)))
+            os.rename(os.path.join(source_directory, "{filename}.tif".format(filename=file_data.fileName)), file_name)
+            sleep(0.05)
+
+    except Exception as e:
+        QgsMessageLog.logMessage('Error: {err}'.format(err=str(e)))
+        return None
 
     try:
         dst_ds = gdal.Open(file_name, gdal.GA_ReadOnly)
