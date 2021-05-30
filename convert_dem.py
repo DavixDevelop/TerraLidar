@@ -67,7 +67,7 @@ def processFiles(task):
         cpu_count = thread_count
 
     ex = concurrent.futures.ThreadPoolExecutor(max_workers=cpu_count)
-    f = ex.map(processFile, repeat(source_epsg) filesData)
+    f = ex.map(processFile, repeat(source_epsg), filesData)
     p = 0
     result = 0
     for res in f:
@@ -108,5 +108,5 @@ def processFile(sourceEpsg, file_data):
 
     return None
 
-process_task = QgsTask.fromFunction('Converting to DEM'.format(len(files)), processFiles, on_finished=filesProccesed)
+process_task = QgsTask.fromFunction('Converting to DEM', processFiles, on_finished=filesProccesed)
 QgsApplication.taskManager().addTask(process_task)
