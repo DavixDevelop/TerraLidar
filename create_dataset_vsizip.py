@@ -38,7 +38,7 @@ source_file = 'C:/Users/david/Documents/Minecraft/Source/Source.zip' # enter pat
 # enter directory where you want to save the generated files. If you are going to upload the dataset via ftp, you don't need to change this
 output_directory = 'C:/Users/david/Documents/Minecraft/Tiled'
 zoom = 12 # enter your zoom level
-resampling_algorithm = 'cubic' # use cubic or more for most accurate color. Look at the resampling algoritm's comparison image on the wiki for other algoritms
+resampling_algorithm = 'near' # use near for most accurate color. Look at the resampling algoritm's comparison image on the wiki for other algoritms
 manual_nodata_value = 0 #Leave at None, to use the defined NODATA value of the source file, or set it to value, if your source file doesn't have NODATA defined
 convert_feet_to_meters = True #Set to True, if your dataset heights are in feet
 

@@ -38,7 +38,7 @@ source_folder = 'C:/Users/david/Documents/Minecraft/Source' # enter direcotry wh
 # enter directory where you want to save the generated files. If you are going to upload the dataset via ftp, you don't need to change this
 output_directory = 'C:/Users/david/Documents/Minecraft/Tiled'
 zoom = 15 # enter your zoom level
-resampling_algorithm = 'cubic' # use cubic or more for most accurate color. Look at the resampling algoritm's comparison image on the wiki for other algoritms
+resampling_algorithm = 'near' # use near for most accurate color. Look at the resampling algoritm's comparison image on the wiki for other algoritms
 manual_nodata_value = None #Leave at None, to use the defined NODATA value of the source file, or set it to value, if your source file doesn't have NODATA defined
 convert_feet_to_meters = False #Set to True, if your dataset heights are in feet
 
@@ -132,9 +132,9 @@ class ColorRamp:
     def __init__(self, altitude, cftm):
         v = None
         if cftm:
-            v = altitude * 0
-        else:
             v = altitude * 0.3048
+        else:
+            v = altitude
         v += 32768
         r = math.floor(v/256)
         g = math.floor(v % 256)
@@ -219,9 +219,7 @@ def genTiles(task):
         pds = gdal.Warp(vrt, pds, dstSRS="EPSG:3857")
         pds = None
 
-        QgsMessageLog.logMessage(
-                    'Created reporojected vrt'),
-                    CATEGORY, Qgis.Info)
+        QgsMessageLog.logMessage('Created reporojected vrt',CATEGORY, Qgis.Info)
 
         terrarium_tile =  os.path.join(source_folder, "TerrariumSource.vrt").replace("\\","/")
         if os.path.isfile(terrarium_tile):
@@ -251,21 +249,27 @@ def genTiles(task):
         minV = None
         maxV = None
 
-        for stat in statistics:
-            if stat.minV is not None and stat.maxV is not None:
-                if minV is None:
-                    minV = stat.minV
-                elif stat.minV < minV:
-                    minV = stat.minV
+        if len(statistics) > 1:
+            for stat in statistics:
+                if stat.minV is not None and stat.maxV is not None:
+                    if minV is None:
+                        minV = stat.minV
+                    elif stat.minV < minV:
+                        minV = stat.minV
 
-                if maxV is None:
-                    maxV = stat.maxV
-                elif stat.maxV > maxV:
-                    maxV = stat.maxV
+                    if maxV is None:
+                        maxV = stat.maxV
+                    elif stat.maxV > maxV:
+                        maxV = stat.maxV
+        else:
+            minV = statistics[0].minV
+            maxV = statistics[0].maxV
 
         if minV is None or maxV is None:
             QgsMessageLog.logMessage('Error: Minimum and maximum height are None',CATEGORY, Qgis.Info)
             return None
+        else:
+            QgsMessageLog.logMessage('Minimum and maximum height are {mn} and {ma}'.format(mn=minV,ma=maxV),CATEGORY, Qgis.Info)
 
         statistics = None
 
@@ -595,7 +599,7 @@ def getBands(src_ds):
         bandsCount = src_ds.RasterCount
     return bandsCount
 
-def createRamp(altitude, cftm):
+def createRamp(cftm, altitude):
         return ColorRamp(altitude, cftm)
 
 def calculateStat(tile):
