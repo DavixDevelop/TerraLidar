@@ -30,7 +30,7 @@ bottom_z = -8901 #Bottom right corner z
 
 scan_allfiles = False #Set it to True, to create an image out of all region2d files
 
-ftp_scan = False # Set to True to create an image from region2d files on the FTP server
+ftp_scan = False # Set to True to scan for region2d files on the FTP server. Else, leave at False
 ftp_s = False # Set to True, if you use a FTPS server
 ftp_url = '' # FTP url (Only IP address or domain, ex 192.168.0.26)
 ftp_port = 21 # FTP port, ex. 2121. Must be set
@@ -94,7 +94,11 @@ def genImage(task, bound):
                     ftp.login(user=ftp_user, passwd=ftp_password)
 
                 if ftp_region2d_folder is not None:
-                    ftp.cwd(ftp_region2d_folder)
+                    try:
+                        ftp.cwd(ftp_region2d_folder)
+                    except:
+                        QgsMessageLog.logMessage('Error: Path does not exist on FTP server', CATEGORY, Qgis.Info)
+                        return None
 
                 remote_files = ftp.nlst()
 

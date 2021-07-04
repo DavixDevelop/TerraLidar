@@ -81,7 +81,7 @@ def processFile(srs_data, file_data):
     ds.SetProjection(srs_data.ExportToWkt())
     del ds
     sleep(0.01)
-    return
+    return file_data[1]
 
 process_task = QgsTask.fromFunction('Setting projection', processFiles, on_finished=filesProccesed)
 QgsApplication.taskManager().addTask(process_task)

@@ -40,7 +40,7 @@ output_directory = 'C:/Users/david/Documents/Minecraft/Tiled'
 zoom = 12 # enter your zoom level
 resampling_algorithm = 'near' # use near for most accurate color. Look at the resampling algoritm's comparison image on the wiki for other algoritms
 manual_nodata_value = 0 #Leave at None, to use the defined NODATA value of the source file, or set it to value, if your source file doesn't have NODATA defined
-convert_feet_to_meters = True #Set to True, if your dataset heights are in feet
+convert_feet_to_meters = False #Set to True, if your dataset heights are in feet
 
 ftp_upload = False # Set to True for upload to FTP server
 ftp_one_file = False #Set to True to upload one zip file (RenderedDataset.zip) to FTP server
@@ -52,8 +52,8 @@ ftp_upload_folder = None
 ftp_user = None # Leave at None for anonymous login, else set to user name, ex. 'davix'
 ftp_password = None # Leave at None for anonymous login, else set to user password, ex. 'password'
 
-cleanup = False # Set to False if you don't wish to delete VRT file and supporting files once the script completes. It will still do a cleanup, if you run the script again
-thread_count = 6 #Set to the number of threads you want to use. Preferably don't use all threads at once. Leave at at None to use all threads
+cleanup = True # Set to False if you don't wish to delete VRT file and supporting files once the script completes. It will still do a cleanup, if you run the script again
+thread_count = None #Set to the number of threads you want to use. Preferably don't use all threads at once. Leave at at None to use all threads
 
 localThread = threading.local()
 
