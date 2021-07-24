@@ -16,36 +16,49 @@ gdal.UseExceptions()
 
 CATEGORY = 'CreateRegionsImage'
 
-region2d_folder = 'C:/Users/david/AppData/Roaming/.minecraft/saves/BTE Celje/region2d' #Set it to the path of the save region2d folder
+save_folder = 'C:/Users/david/AppData/Roaming/.minecraft/saves/BTE Celje' #Set it to the path of the save folder
 output_file = 'C:/Users/david/Documents/Minecraft/Celje.png' #Set it to the path of the ouptut png image that will be created
 
 scale = 1.0 #Set the scaling (ex 1.0 means 1 pixel=1region, 0.5 means 1 pixel=4 regions)
 
-
 top_x = 7000 #Top left corner x
-top_z = -9900 #Top left corner z
+top_z = -8901 #Top left corner z
 bottom_x = 8599 #Bottom right corner x
-bottom_z = -8901 #Bottom right corner z
+bottom_z = -9900 #Bottom right corner z
 
+pixel_color = [199, 144, 185] #RGB color of pixel
 
+skip_empty_regions = True #Set to True, if you wish to skip 2d region files with no 3d region files. Else set to False
 scan_allfiles = False #Set it to True, to create an image out of all region2d files
 
 ftp_scan = False # Set to True to scan for region2d files on the FTP server. Else, leave at False
 ftp_s = False # Set to True, if you use a FTPS server
 ftp_url = '' # FTP url (Only IP address or domain, ex 192.168.0.26)
 ftp_port = 21 # FTP port, ex. 2121. Must be set
-#Path to the region2d folder on the FTP server , ex. 'world/region2d'. Leave at None if the region2d files are on the root
-ftp_region2d_folder = None
+#Path to the save folder on the FTP server , ex. 'world'
+ftp_save_folder = None
 ftp_user = None # Leave at None for anonymous login, else set to user name, ex. 'davix'
 ftp_password = None # Leave at None for anonymous login, else set to user password, ex. 'password'
 
 IS_REGION_FILENAME = re.compile(r'^(-?(?:\d+,?)+)\.(-?(?:\d+,?)+)')
+IS_REGION3D_FILENAME = re.compile(r'^(-?(?:\d+,?)+).(-?(?:\d+,?)+).(-?(?:\d+,?)+)')
 IS_REGION_FILE = re.compile(r'^(-?(?:\d+,?)+)\.(-?(?:\d+,?)+).2dr')
+IS_REGION3D_FILE = re.compile(r'^(-?(?:\d+,?)+).(-?(?:\d+,?)+).(-?(?:\d+,?)+).3dr')
+
+region2d_folder = os.path.join(save_folder, 'region2d').replace("\\","/")
+region3d_folder = os.path.join(save_folder, 'region3d').replace("\\","/")
 
 class Region:
-    def __init__(self, x, z):
+    def __init__(self, x, z, reg3d):
         self.x = x
         self.z = z
+        self.regions3D = reg3d
+
+class Region3D:
+    def __init__(self, x, z, y):
+        self.x = x
+        self.z = z
+        self.y = y
 
 class Bounds:
     def __init__(self, minX, minZ, maxX, maxZ):
@@ -68,7 +81,28 @@ def genImage(task, bound):
     time_start = datetime.now()
     try:
         regions = []
+        regions3d = []
         if not ftp_scan:
+            if skip_empty_regions:
+                raw_files = os.listdir(region3d_folder)
+                for raw_file in raw_files:
+                    if raw_file.endswith(".3dr"):
+                        fl = os.path.join(region3d_folder, raw_file).replace("\\","/")
+                        fileinfo = QFileInfo(fl)
+                        filename = fileinfo.completeBaseName()
+                        m = IS_REGION3D_FILENAME.match(filename)
+                        if m:
+                            x = int(m.group(1))
+                            z = int(m.group(3))
+                            y = int(m.group(2))
+
+                            if not scan_allfiles:
+                                if x < bound.minX and x > bound.maxX and z < minZ and z > maxZ:
+                                    continue
+
+                            regions3d.append(Region3D(x,z,y))
+
+            raw_files = []
             raw_files = os.listdir(region2d_folder)
             for raw_file in raw_files:
                 if raw_file.endswith(".2dr"):
@@ -79,7 +113,18 @@ def genImage(task, bound):
                     if m:
                         x = int(m.group(1))
                         z = int(m.group(2))
-                        regions.append(Region(x,z))
+                        if not scan_allfiles:
+                            if x < bound.minX and x > bound.maxX and z < minZ and z > maxZ:
+                                continue
+
+                        #QgsMessageLog.logMessage('Region x: {x}, z: {z}'.format(x=str(x),z=str(z)), CATEGORY, Qgis.Info)
+                        if skip_empty_regions:
+                            reg3d = list(filter(lambda f: f.x >> 1 == x and f.z >> 1 == z, regions3d))
+                            if reg3d is not None and any(reg3d):
+                                regions.append(Region(x,z, reg3d))
+                        else:
+                            regions.append(Region(x,z, None))
+
         else:
             try:
                 ftp = None
@@ -93,21 +138,51 @@ def genImage(task, bound):
                 else:
                     ftp.login(user=ftp_user, passwd=ftp_password)
 
-                if ftp_region2d_folder is not None:
+                if ftp_save_folder is not None:
                     try:
-                        ftp.cwd(ftp_region2d_folder)
+                        ftp.cwd(ftp_save_folder)
+
+                        if skip_empty_regions:
+                            ftp.cwd('region3d')
+                            remote3d_files = ftp.nlst()
+
+                            for rf in remote3d_files:
+                                m = IS_REGION3D_FILE.match(rf)
+                                if m:
+                                    x = int(m.group(1))
+                                    z = int(m.group(3))
+                                    y = int(m.group(2))
+
+                                    if not scan_allfiles:
+                                        if x < bound.minX and x > bound.maxX and z < minZ and z > maxZ:
+                                            continue
+
+                                    regions3d.append(Region3D(x,z,y))
+
+                            ftp.cwd('../')
+
+                        ftp.cwd('region2d')
+                        remote_files = ftp.nlst()
+                        for rf in remote_files:
+                            m = IS_REGION_FILE.match(rf)
+                            if m:
+                                x = int(m.group(1))
+                                z = int(m.group(2))
+                                if not scan_allfiles:
+                                    if x < bound.minX and x > bound.maxX and z < minZ and z > maxZ:
+                                        continue
+
+                                if skip_empty_regions:
+                                    reg3d = list(filter(lambda f: f.x >> 1 == x and f.z >> 1 == z, regions3d))
+                                    if reg3d is not None and any(reg3d):
+                                        regions.append(Region(x,z, reg3d))
+                                else:
+                                    regions.append(Region(x,z, None))
                     except:
                         QgsMessageLog.logMessage('Error: Path does not exist on FTP server', CATEGORY, Qgis.Info)
                         return None
 
-                remote_files = ftp.nlst()
 
-                for rf in remote_files:
-                    m = IS_REGION_FILE.match(rf)
-                    if m:
-                        x = int(m.group(1))
-                        z = int(m.group(2))
-                        regions.append(Region(x,z))
                 ftp.quit()
 
             except Exception as e:
@@ -124,18 +199,12 @@ def genImage(task, bound):
             else:
                 QgsMessageLog.logMessage('No 2dr files found', CATEGORY, Qgis.Info)
                 return None
-        else:
-            temp_regions = regions
-            regions = []
-            for reg in temp_regions:
-                if reg.x >= bound.minX and reg.x <= bound.maxX and reg.z >= bound.minZ and reg.z <= bound.maxZ:
-                    regions.append(reg)
-
-            temp_regions = None
 
         if len(regions) == 0:
             QgsMessageLog.logMessage('No 2dr files found', CATEGORY, Qgis.Info)
             return None
+        else:
+            QgsMessageLog.logMessage('Creating image out of {count} 2dr files'.format(count=str(len(regions))), CATEGORY, Qgis.Info)
 
         range_width = abs(bound.maxX - bound.minX) + 1
         range_height = abs(bound.minZ - bound.maxZ) + 1
@@ -181,16 +250,45 @@ def genImage(task, bound):
             x = max(0, min(int(round((coord_x * t_width) / t_range_width)), width - 1))
             y = max(0, min(int(round((coord_y * t_height) / t_range_height)), height - 1))
 
-            red = dst_src.GetRasterBand(1).ReadAsArray(yoff=y,win_xsize=width, win_ysize=1)
-            green = dst_src.GetRasterBand(2).ReadAsArray(yoff=y,win_xsize=width, win_ysize=1)
-            blue = dst_src.GetRasterBand(3).ReadAsArray(yoff=y,win_xsize=width, win_ysize=1)
-            alpha = dst_src.GetRasterBand(4).ReadAsArray(yoff=y,win_xsize=width, win_ysize=1)
+            if scale <= 1.0:
 
-            red[0][x] = 199
-            green[0][x] = 144
-            blue[0][x] = 185
-            alpha[0][x] = 255
-            writeRow(dst_src, red, green, blue, alpha, y)
+                red = dst_src.GetRasterBand(1).ReadAsArray(yoff=y,win_xsize=width, win_ysize=1)
+                green = dst_src.GetRasterBand(2).ReadAsArray(yoff=y,win_xsize=width, win_ysize=1)
+                blue = dst_src.GetRasterBand(3).ReadAsArray(yoff=y,win_xsize=width, win_ysize=1)
+                alpha = dst_src.GetRasterBand(4).ReadAsArray(yoff=y,win_xsize=width, win_ysize=1)
+
+                red[0][x] = pixel_color[0]
+                green[0][x] = pixel_color[1]
+                blue[0][x] = pixel_color[0]
+                alpha[0][x] = 255
+                writeRow(dst_src, red, green, blue, alpha, y)
+
+            else:
+                for yt in range(int(scale)):
+                    yt_off = y + yt
+                    if yt_off > height - 1:
+                        yt_off = y - yt
+                    try:
+                        red = dst_src.GetRasterBand(1).ReadAsArray(yoff=yt_off,win_xsize=width, win_ysize=1)
+                        green = dst_src.GetRasterBand(2).ReadAsArray(yoff=yt_off,win_xsize=width, win_ysize=1)
+                        blue = dst_src.GetRasterBand(3).ReadAsArray(yoff=yt_off,win_xsize=width, win_ysize=1)
+                        alpha = dst_src.GetRasterBand(4).ReadAsArray(yoff=yt_off,win_xsize=width, win_ysize=1)
+
+                        for xt in range(int(scale)):
+                            xt_off = x + xt
+                            if xt_off > width - 1:
+                                xt_off = x - xt
+                            red[0][xt_off] = pixel_color[0]
+                            green[0][xt_off] = pixel_color[1]
+                            blue[0][xt_off] = pixel_color[2]
+                            alpha[0][xt_off] = 255
+
+                        writeRow(dst_src, red, green, blue, alpha, yt_off)
+                    except Exception as e:
+                        QgsMessageLog.logMessage('Error while filling pixel: {error}, Y off {ytoff}'.format(error=str(e),ytoff=yt_off), CATEGORY, Qgis.Info)
+                        return None
+
+
             rc += 1
             task.setProgress(max(0, min(int((rc * 50) / cc) + 50, 100)))
 
