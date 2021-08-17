@@ -25,7 +25,8 @@ def processFiles(task):
 
     if recursive:
         for raw_file in glob.iglob(source_directory + '**/**', recursive=True):
-            if raw_file.endswith(".tif") or raw_file.endswith(".tiff"):
+            if (raw_file.endswith(".tif") or raw_file.endswith(".tiff")
+            or raw_file.endswith(".img") or raw_file.endswith(".IMG")):
                 raw_file = raw_file.replace("\\","/")
                 fileinfo = QFileInfo(raw_file)
                 filename = fileinfo.completeBaseName()
@@ -33,7 +34,8 @@ def processFiles(task):
     else:
         raw_files = os.listdir(source_directory)
         for raw_file in raw_files:
-            if raw_file.endswith(".tif") or raw_file.endswith(".tiff"):
+            if (raw_file.endswith(".tif") or raw_file.endswith(".tiff")
+            or raw_file.endswith(".img") or raw_file.endswith(".IMG")):
                 fl = os.path.join(source_directory, raw_file)
                 fileinfo = QFileInfo(fl)
                 filename = fileinfo.completeBaseName()

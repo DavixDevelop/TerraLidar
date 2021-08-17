@@ -9,6 +9,9 @@ from qgis.core import QgsProject
 
 CATEGORY = 'ImportDem'
 
+file_directory = 'C:\\Users\\david\\Documents\\Minecraft\\TerDem' #enter file directory to load
+recursive = False #Set to True if you want the script to also scan for files in sub-folders
+
 def newitem(altitude):
 	red = math.floor(altitude/256) + 128
 	remainder = altitude%256
@@ -63,27 +66,40 @@ def processLayer(layer):
 	renderer = QgsSingleBandPseudoColorRenderer(rlayer.dataProvider(), 1, shader)
 	return [renderer, rlayer, layer[1]]
 
-
-
-file_directory = 'C:\\Users\\david\\Documents\\Minecraft\\TerDem' #enter file directory to load
-
 files = os.listdir(file_directory)
 
 new_layers = []
 
-for dem in files:
-	if (dem.endswith(".tif")) or (dem.endswith('.TIF')):
-		fn = os.path.join(file_directory, dem)
-		fileinfo = QFileInfo(fn)
-		filename = fileinfo.completeBaseName()
-		newlayer = iface.addRasterLayer(fn, filename)
-		sleep(0.05)
-		new_layers.append([newlayer, filename])
-		sleep(0.05)
-		QgsMessageLog.logMessage(
-			'Added layer for {layername}'.format(layername=filename),
-			CATEGORY, Qgis.Info)
-		sleep(0.05)
+if recursive:
+	for dem in glob.iglob(file_directory + '**/**', recursive=True):
+		if (dem.endswith(".tif") or dem.endswith('.TIF')
+		or dem.endswith(".img") or dem.endswith(".IMG")):
+			dem = dem.replace("\\","/")
+			fileinfo = QFileInfo(dem)
+			filename = fileinfo.completeBaseName()
+			newlayer = iface.addRasterLayer(dem, filename)
+			sleep(0.05)
+			new_layers.append([newlayer, filename])
+			sleep(0.05)
+			QgsMessageLog.logMessage(
+				'Added layer for {layername}'.format(layername=filename),
+				CATEGORY, Qgis.Info)
+			sleep(0.05)
+else:
+	for dem in files:
+		if (dem.endswith(".tif") or dem.endswith('.TIF')
+		or dem.endswith(".img") or dem.endswith(".IMG")):
+			fn = os.path.join(file_directory, dem)
+			fileinfo = QFileInfo(fn)
+			filename = fileinfo.completeBaseName()
+			newlayer = iface.addRasterLayer(fn, filename)
+			sleep(0.05)
+			new_layers.append([newlayer, filename])
+			sleep(0.05)
+			QgsMessageLog.logMessage(
+				'Added layer for {layername}'.format(layername=filename),
+				CATEGORY, Qgis.Info)
+			sleep(0.05)
 
 QgsMessageLog.logMessage(
 			'Found {count} dem files'.format(count=len(new_layers)),

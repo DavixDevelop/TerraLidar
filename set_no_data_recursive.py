@@ -13,7 +13,7 @@ import shutil
 from itertools import repeat
 
 CATEGORY = 'SetNoData'
-source_directory  = "C:/Users/david/Documents/Minecraft/Source"  #enter directory with your tiff files 
+source_directory  = "C:/Users/david/Documents/Minecraft/Source"  #enter directory with your tiff files
 thread_count = None #Set to the number of threads you want to use. Preferably don't use all threads at once. Leave at at None to use all threads
 nodata = 0 #Set the value of nodata
 
@@ -59,7 +59,8 @@ files = []
 
 #Change the asc or xyz extension, to whatever extension your raster data source uses, but first check if gdal can open it.
 for raw_file in glob.iglob(source_directory + '**/**', recursive=True):
-    if raw_file.endswith(".tif") or raw_file.endswith(".tiff"):
+    if (raw_file.endswith(".tif") or raw_file.endswith(".tiff")
+    or raw_file.endswith(".img") or raw_file.endswith(".IMG")):
         raw_file = raw_file.replace("\\","/")
         fileinfo = QFileInfo(raw_file)
         filename = fileinfo.completeBaseName()

@@ -174,7 +174,8 @@ def genTiles(task):
 
         files = []
         for src in glob.iglob(source_folder + '**/**', recursive=True):
-            if src.endswith(".tif") or src.endswith(".tiff"):
+            if (src.endswith(".tif") or src.endswith(".tiff")
+            or src.endswith(".img") or src.endswith(".IMG")):
                 src = src.replace("\\","/")
                 fileinfo = QFileInfo(src)
                 filename = fileinfo.completeBaseName()
