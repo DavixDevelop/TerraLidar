@@ -80,7 +80,7 @@ def processFile(job_data, file_data):
 		sleep(0.05)
 
 		if job_data.proj is not None:
-			ds = gdal.Open(target_file, GA_Update)
+			ds = gdal.Open(target_file, gdal.GA_Update)
 			sleep(0.01)
 			ds.SetProjection(job_data.proj.ExportToWkt())
 			del ds
@@ -88,8 +88,7 @@ def processFile(job_data, file_data):
 
 		return file_data[1]
 	except Exception as e:
-		QgsMessageLog.logMessage(
-					'Error while processing {name} files. Error: {er}'.format(name=file_data[1],er=str(e)))
+		QgsMessageLog.logMessage('Error while processing {name} files. Error: {er}'.format(name=file_data[1],er=str(e)))
 		return None
 
 raw_files = os.listdir(source_directory)
