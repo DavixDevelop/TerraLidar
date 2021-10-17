@@ -12,10 +12,17 @@ CATEGORY = 'ImportDem'
 
 file_directory = 'C:\\Users\\david\\Documents\\Minecraft\\TerDem' #enter file directory to load
 recursive = False #Set to True if you want the script to also scan for files in sub-folders
+convert_feet_to_meters = False #Set to True, if your dataset heights are in feet
 
-def newitem(altitude):
-	red = math.floor(altitude/256) + 128
-	remainder = altitude%256
+def newitem(cftm, altitude):
+	v = None
+	if cftm:
+		v = altitude * 0.3048
+	else:
+		v = altitude
+
+	red = math.floor(v/256) + 128
+	remainder = v%256
 	green = math.floor(remainder)
 	remainder = remainder%1
 	blue = math.floor(remainder*256)
@@ -56,9 +63,9 @@ def processLayer(layer):
 	min = int(math.floor(stats.minimumValue))
 	max = int(math.ceil(stats.maximumValue))
 	lst = []
-	for meters in range(min, max):
+	for altitude in range(min, max):
 		for fraction in range (0, 256):
-			lst.append(newitem(meters+(fraction/256)))
+			lst.append(newitem(convert_feet_to_meters, altitude+(fraction/256)))
 	fnc = QgsColorRampShader()
 	fnc.setColorRampType(QgsColorRampShader.Discrete)
 	fnc.setColorRampItemList(lst)
