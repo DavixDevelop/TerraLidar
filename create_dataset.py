@@ -197,10 +197,26 @@ def genTiles(task):
         org_vrt = os.path.join(source_folder, "OrgSource.vrt").replace("\\","/")
         if os.path.isfile(org_vrt):
             os.remove(org_vrt)
-
-
+        
         org_files = []
         for file in files:
+            tile_ds = gdal.Open(file[0], gdal.GA_ReadOnly)
+            tile_info = gdal.Info(tile_ds, format='json')
+            #Check if tiff has an positive NS resolution
+            if tile_info["geoTransform"][5] > 0:
+                QgsMessageLog.logMessage('Reprojectiong {tile_name} duo to positive NS resolution (vertically flipped image)'.format(tile_name=file[1]), CATEGORY, Qgis.Info)
+                reprojected_tiff = os.path.join(os.path.dirname(file[0]), "{filename}_NS_Corrected{ext}".format(filename=file[1],ext=os.path.splitext(file[0])[1]))
+                #Use gdalwarp to corrent the positive NS resolution
+                gdal.Warp(reprojected_tiff, tile_ds)
+                tile_ds = None
+
+                #Delete original file
+                os.remove(file[0])
+                #Rename reprojected tiff to original file name
+                os.rename(reprojected_tiff, file[0])
+            else:
+                tile_ds = None
+
             org_files.append(file[0])
 
         ds = gdal.BuildVRT(org_vrt, org_files,resolution="highest",resampleAlg="bilinear")
