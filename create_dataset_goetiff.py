@@ -587,7 +587,7 @@ def noDataTile(dstile, tile_data, job_data):
     subregion_mask = numpy.zeros((tile_data.querysize, tile_data.querysize), dtype=bool)
     subregion_mask[tile_data.wy: tile_data.wy + tile_data.wysize, tile_data.wx: tile_data.wx + tile_data.wxsize] = True
     #Convert data to a numpy array
-    data_array = numpy.frombuffer(data, dtype=numpy.float32).reshape((tile_data.querysize, tile_data.querysize))
+    data_array = numpy.frombuffer(data, dtype=numpy.float32).reshape((tile_data.querysize, tile_data.querysize)).copy()
     #Set the values outside the subregion to newnodata
     data_array[~subregion_mask] = job_data.newnodata
     #Convert the data array back to the raster (byte string)
@@ -638,7 +638,7 @@ def tileVrt(job_data, tile_data):
             if job_data.nodatavalue is not None and alphamask.count('\x00'.encode('ascii')) > 0:
 
                 #Convert data to a numpy array
-                data_array = numpy.frombuffer(data, dtype=numpy.float32).reshape((tile_data.wxsize, tile_data.wysize))
+                data_array = numpy.frombuffer(data, dtype=numpy.float32).reshape((tile_data.wxsize, tile_data.wysize)).copy()
                 #Set the data raster to newnodata where alpha is 0
                 data_array[data_array == job_data.nodatavalue] = job_data.newnodata
 
