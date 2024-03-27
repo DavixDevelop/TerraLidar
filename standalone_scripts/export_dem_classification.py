@@ -3,6 +3,7 @@ import multiprocessing
 import subprocess
 from time import sleep
 from pathlib import Path
+import glob
 import concurrent.futures
 from itertools import repeat
 from osgeo import gdal
@@ -84,12 +85,12 @@ files = []
 
 
 #Change the laz extension, to whatever extension your data source uses, but first check if CloudCompare can open it.
-for raw_file in raw_files:
-	if raw_file.endswith(".laz") or raw_file.endswith(".las"):
-		fl = os.path.join(source_directory, raw_file).replace("\\","/")
-		fileinfo = Path(fl)
+for src in glob.iglob(source_directory + '**/**', recursive=True):
+	if src.endswith(".laz") or src.endswith(".las"):
+		src = src.replace("\\","/")
+		fileinfo = Path(src)
 		filename = fileinfo.stem
-		files.append([fl, filename])
+		files.append([src, filename])
 
 print('{cat}: Found {count} lidar files'.format(cat=CATEGORY,count=len(files)))
 
