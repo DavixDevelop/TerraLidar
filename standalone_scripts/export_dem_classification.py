@@ -1,19 +1,14 @@
-import math
-import glob
 import os
 import multiprocessing
 import subprocess
 from time import sleep
-from qgis.core import QgsProject
 from pathlib import Path
 import concurrent.futures
-import shutil
 from itertools import repeat
 from osgeo import gdal
-from osgeo import gdalconst
 from osgeo import osr
-
-CATEGORY = 'GenerateDem'
+ 
+CATEGORY = 'GenerateDem_Standalone'
 
 source_directory  = "C:\\Users\\david\\Documents\\Minecraft\\Source" #enter directory with source files
 dem_directory = "C:\\Users\\david\\Documents\\Minecraft\\DEM" #enter directory where you want to save the generated dem files
@@ -33,11 +28,9 @@ class Job:
 		self.scalarIndex = scalarIndex
 		self.proj = proj
 
-def processFiles(task, filesData):
+def processFiles(filesData):
 	result=len(filesData)
-	QgsMessageLog.logMessage(
-				'Started processing {count} files'.format(count=len(filesData)),
-				CATEGORY, Qgis.Info)
+	print('{cat}: Started processing {count} files'.format(cat=CATEGORY, count=len(filesData)))
 	cpu_count = 1
 	if thread_count is None:
 		cpu_count = multiprocessing.cpu_count()
@@ -56,18 +49,12 @@ def processFiles(task, filesData):
 	p = 0
 	for res in f:
 		if res is not None:
-			QgsMessageLog.logMessage(
-					'Processed file {name}'.format(name=res),
-					CATEGORY, Qgis.Info)
+			print('{cat}: Processed file {name} | '.format(name=res, cat=CATEGORY))
 			p += 1
-			task.setProgress(int((p * 100) / len(filesData)))
 			sleep(0.05)
-	return result
-
-def filesProccesed(task, result=None):
+    
 	if result is not None:
-		QgsMessageLog.logMessage('Done generating {files_count} dem files'.format(files_count=result),CATEGORY, Qgis.Info)
-
+		print('{cat}: Done generating {files_count} dem files'.format(cat=CATEGORY, files_count=result))
 
 def processFile(job_data, file_data):
 	try:
@@ -88,7 +75,7 @@ def processFile(job_data, file_data):
 
 		return file_data[1]
 	except Exception as e:
-		QgsMessageLog.logMessage('Error while processing {name} file. Error: {er}'.format(name=file_data[1],er=str(e)))
+		print('{cat}: Error while processing {name} file. Error: {er}'.format(cat=CATEGORY, name=file_data[1],er=str(e)))
 		return None
 
 raw_files = os.listdir(source_directory)
@@ -100,11 +87,11 @@ files = []
 for raw_file in raw_files:
 	if raw_file.endswith(".laz") or raw_file.endswith(".las"):
 		fl = os.path.join(source_directory, raw_file).replace("\\","/")
-		fileinfo = QFileInfo(fl)
-		filename = fileinfo.completeBaseName()
+		fileinfo = Path(fl)
+		filename = fileinfo.stem
 		files.append([fl, filename])
 
-QgsMessageLog.logMessage('Found {count} lidar files'.format(count=len(files)),CATEGORY, Qgis.Info)
+print('{cat}: Found {count} lidar files'.format(cat=CATEGORY,count=len(files)))
 
-process_task = QgsTask.fromFunction('Finished generating dem for {0} files'.format(len(files)), processFiles, on_finished=filesProccesed, filesData=files)
-QgsApplication.taskManager().addTask(process_task)
+processFiles(files)
+print('{0}: Finished generating dem for {1} files'.format(CATEGORY, len(files)))
