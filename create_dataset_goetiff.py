@@ -32,7 +32,7 @@ except ImportError:
     numpy_available = False
 
 
-CATEGORY = 'CreateDatasetGeotiff'
+CATEGORY = 'CreateDataset_GeoTIFF'
 
 source_folder = 'C:/Users/david/Documents/Minecraft/Source' #'C:/Users/david/Documents/Minecraft/Source' # enter direcotry where your source files are
 # enter directory where you want to save the generated files. If you are going to upload the dataset via ftp, you don't need to change this

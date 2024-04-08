@@ -6,6 +6,7 @@ from osgeo import gdal
 from osgeo import gdalconst
 from qgis.utils import iface
 from qgis.core import QgsProject
+from qgis.core import QgsApplication
 from pathlib import Path
 import shutil
 from time import sleep
@@ -21,6 +22,8 @@ from operator import itemgetter
 import threading
 from ftplib import FTP_TLS
 from ftplib import FTP
+from lxml import etree
+from difflib import SequenceMatcher
 
 try:
     from PIL import Image
@@ -34,12 +37,12 @@ except ImportError:
 
 CATEGORY = 'CreateDataset'
 
-source_folder = 'C:/Users/david/Documents/Minecraft/Source' # enter direcotry where your source files are
+source_folder = 'C:/Users/david/Documents/Minecraft/Source' # enter directory where your source files are
 # enter directory where you want to save the generated files. If you are going to upload the dataset via ftp, you don't need to change this
 output_directory = 'C:/Users/david/Documents/Minecraft/Tiled'
 zoom = 15 # enter your zoom level
-resampling_algorithm = 'near' # use near for most accurate color. Look at the resampling algoritm's comparison image on the wiki for other algoritms
-manual_nodata_value = None #Leave at None, to use the defined NODATA value of the source file, or set it to value, if your source file doesn't have NODATA defined
+resampling_algorithm = 'near' # use near for most accurate color. Look at the resampling algorithm's comparison image on the wiki for other algorithms
+manual_nodata_value = None #Leave at None to use the defined NODATA value of the source file, or set it to value, if your source files don't have NODATA defined
 convert_feet_to_meters = False #Set to True, if your dataset heights are in feet
 
 ftp_upload = False # Set to True for upload to FTP server
@@ -184,12 +187,6 @@ def genTiles(task):
         if len(files) == 0:
             return [0, time_start]
 
-        #cpu_count = min(6, cpu_count)
-        #if cpu_count % 2 == 0:
-        #    cpu_count = int(cpu_count / 2)
-
-        # converted_source = os.path.join(source_folder, "converted").replace("\\","/")
-
         QgsMessageLog.logMessage(
                     'Started creating dataset out of {count} files'.format(count=len(files)),
                     CATEGORY, Qgis.Info)
@@ -204,7 +201,7 @@ def genTiles(task):
             tile_info = gdal.Info(tile_ds, format='json')
             #Check if tiff has an positive NS resolution
             if tile_info["geoTransform"][5] > 0:
-                QgsMessageLog.logMessage('Reprojectiong {tile_name} duo to positive NS resolution (vertically flipped image)'.format(tile_name=file[1]), CATEGORY, Qgis.Info)
+                QgsMessageLog.logMessage('Reprojecting {tile_name} duo to positive NS resolution (vertically flipped image)'.format(tile_name=file[1]), CATEGORY, Qgis.Info)
                 reprojected_tiff = os.path.join(os.path.dirname(file[0]), "{filename}_NS_Corrected{ext}".format(filename=file[1],ext=os.path.splitext(file[0])[1]))
                 #Use gdalwarp to corrent the positive NS resolution
                 gdal.Warp(reprojected_tiff, tile_ds)
@@ -218,9 +215,35 @@ def genTiles(task):
                 tile_ds = None
 
             org_files.append(file[0])
+        
+        if manual_nodata_value is not None:
+            org_vrt_options = gdal.BuildVRTOptions(resolution="highest",resampleAlg="bilinear",srcNodata=manual_nodata_value,VRTNodata=manual_nodata_value)
+        else:
+            org_vrt_options = gdal.BuildVRTOptions(resolution="highest",resampleAlg="bilinear")
 
-        ds = gdal.BuildVRT(org_vrt, org_files,resolution="highest",resampleAlg="bilinear")
+        ds = gdal.BuildVRT(org_vrt, org_files,options=org_vrt_options)
         ds.FlushCache()
+
+        source_no_data_value = None
+        os_name = QgsApplication.osName()
+
+        if os_name == "linux":
+            if manual_nodata_value is None:
+                #Get no data value from org source vrt as string
+                org_vrt_tree = etree.parse(org_vrt)
+                org_vrt_root = org_vrt_tree.getroot()
+                org_vrt_band_1 = org_vrt_root.findall(".//VRTRasterBand[@band='1']")[0]
+                org_vrt_band_1_no_data_entries = org_vrt_band_1.findall('.//NoDataValue')
+                if org_vrt_band_1_no_data_entries is not None and len(org_vrt_band_1_no_data_entries) > 0:
+                    org_vrt_band_1_no_data_entry = org_vrt_band_1_no_data_entries[0]
+                    source_no_data_value = str(org_vrt_band_1_no_data_entry.text)
+
+                if source_no_data_value == "" or source_no_data_value is None:
+                    source_no_data_value = None
+            else:
+                source_no_data_value = str(manual_nodata_value)
+
+
         ds = None
         sleep(0.05)
 
@@ -311,8 +334,7 @@ def genTiles(task):
         QgsMessageLog.logMessage(
                     'Creating color ramp file',
                     CATEGORY, Qgis.Info)
-
-        #sorted_color_ramp = sorted(color_ramp, key=itemgetter(0))
+        
         color_ramp.sort(key = lambda x: x.altitude)
         f = open(color_ramp_file, "w")
         rt = 0
@@ -338,16 +360,57 @@ def genTiles(task):
                     CATEGORY, Qgis.Info)
 
         dst_ds = gdal.Open(vrt)
-
-
         ds = gdal.DEMProcessing(terrarium_tile, dst_ds, 'color-relief', colorFilename=color_ramp_file, format="VRT", addAlpha=True)
         sleep(0.05)
-
-
         dst_ds = None
 
         QgsMessageLog.logMessage(
                     'Created vrt in terrarium format',
+                    CATEGORY, Qgis.Info)
+        
+        #gdal.DEMProcessing with the 'color-relief' option and when the output datasource is a VRT, 
+        #inserts two key-pairs at the start of  of the LUT (Look up table) element of each VRTRasterBand (including the 4th, ergo Alpha band), which It's keys are very similar to the source NODATA value
+        #It does this on both Windows and Linux, with the only difference being that on Windows these two keys are more similar,
+        #if not the first key being the same as the source NODATA, but on Linux these two keys are less similar to the source NODATA, compared to Windows
+        #This, alongside with difference between the first and second key being greater then on Windows, 
+        #and the second value pointing to the same byte value as the 3rd key-pair value (The real min height value of the dataset),
+        #makes gdal/QGIS render the NODATA value as half transparent (ex. 128 byte), making the script render tiles with half-transparent areas
+        #
+        #To fix this bug, the script first reads the key-pairs of the LUT element of the Alpha VRTRasterBand
+        #If the first key-pair key is not the same as the NODATA value, it calculates the string similarity between the first and second key-pair keys
+        #If it's the similarity ratio is greater then 0.9, the script removed the 2nd key-pair
+        #Finally set's the first key-pair key to the NODATA value, It's value to 0 (0 byte, ergo Transparent) 
+        #and writes the changes to the VRT file
+        if os_name == "linux" and source_no_data_value is not None:
+            QgsMessageLog.logMessage(
+                    'Checking for no data value in alpha raster band of terrarium vrt',
+                    CATEGORY, Qgis.Info)
+            terrarium_tile_tree = etree.parse(terrarium_tile)
+            terrarium_tile_root = terrarium_tile_tree.getroot()
+
+            alpha_vrt_raster_band = terrarium_tile_root.findall(".//VRTRasterBand[@band='4']")[0]
+            alpha_band_lut = alpha_vrt_raster_band.findall(".//LUT")[0]
+            first_lut_key= alpha_band_lut.text[0:alpha_band_lut.text.index(',') - 2]
+            if first_lut_key != source_no_data_value:
+                
+                org_lut_text = alpha_band_lut.text[alpha_band_lut.text.index(',') + 1:len(alpha_band_lut.text)]
+                second_lut_key_index = org_lut_text.index(',')
+
+                #Compare if the second LUT key is similar to the first one. If it is, remove it
+                if second_lut_key_index > -1:
+                    second_lut_key = org_lut_text[0:second_lut_key_index].split(':')[0]
+                    first_second_match = SequenceMatcher(None, first_lut_key, second_lut_key)
+                    if first_second_match.ratio() > 0.9:
+                        org_lut_text = org_lut_text[second_lut_key_index + 1:len(org_lut_text)]
+                
+                alpha_band_lut_text = source_no_data_value + ':0,' + org_lut_text 
+                alpha_band_lut.text = alpha_band_lut_text
+
+                new_tree = etree.ElementTree(terrarium_tile_root)
+                new_tree.write(terrarium_tile,pretty_print=True,xml_declaration=False,encoding="utf-8")
+
+                QgsMessageLog.logMessage(
+                    'Detected incorrect no data value ({0}) in alpha raster band of terrarium vrt. Should be: {1}. Corrected to right value'.format(first_lut_key, source_no_data_value),
                     CATEGORY, Qgis.Info)
 
         input_file = terrarium_tile
@@ -504,7 +567,7 @@ def genTiles(task):
         realtiles = 0
 
         if cpu_count == 1:
-            QgsMessageLog.logMessage('Started tilling vrt in singlethread mode', CATEGORY, Qgis.Info)
+            QgsMessageLog.logMessage('Started tilling vrt in single-thread mode', CATEGORY, Qgis.Info)
             rt = 0
             cf = len(tiled)
             for tile in tiled:
@@ -551,7 +614,7 @@ def genTiles(task):
         if job.ftpUpload and job.ftpOnefile:
             rd_file.close()
             totalSize = os.path.getsize(zip_file)
-            QgsMessageLog.logMessage('Starting uploading renderned archive ({size} GB) out of {count} tiles'.format(count=realtiles, size=str(round(totalSize * 9.3132257461548E-10, 4))), CATEGORY, Qgis.Info)
+            QgsMessageLog.logMessage('Starting uploading rendered archive ({size} GB) out of {count} tiles'.format(count=realtiles, size=str(round(totalSize * 9.3132257461548E-10, 4))), CATEGORY, Qgis.Info)
 
             ftp = None
             if job.ftpS:
