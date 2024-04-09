@@ -49,7 +49,7 @@ output = 'C:/Users/david/Documents/Minecraft/Tiled'
 zoom = 15 #enter your zoom level
 resampling_algorithm = 'near' # use near for most accurate color. Look at the resampling algorithm's comparison image on the wiki for other algorithms
 manual_nodata_value = None #Leave at None to use the defined NODATA value of the source file, or set it to value, if your source files don't have NODATA defined
-convert_feet_to_meters = True #Set to True, if your dataset heights are in feet
+convert_feet_to_meters = False #Set to True, if your dataset heights are in feet
 
 ftp_upload = False # Set to True for upload to FTP server
 ftp_one_file = False #Set to True to upload one zip file (RenderedDataset.zip) to FTP server
@@ -1075,7 +1075,7 @@ def genHeightsConfig(taskData):
             ftp = FTP_TLS()
         else:
             ftp = FTP()
-        ftp.connect(ftp_upload_url, ftp_upload_url)
+        ftp.connect(ftp_upload_url, ftp_upload_port)
 
         if ftp_user is None or ftp_password is None:
             ftp.login()
