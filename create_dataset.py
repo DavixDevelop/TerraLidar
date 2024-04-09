@@ -24,6 +24,8 @@ from ftplib import FTP_TLS
 from ftplib import FTP
 from lxml import etree
 from difflib import SequenceMatcher
+import json
+import io
 
 try:
     from PIL import Image
@@ -40,20 +42,20 @@ CATEGORY = 'CreateDataset'
 # enter one or more directory where your source files are
 # ex. ['C:/Users/david/Documents/Minecraft/Source','C:/Users/david/Documents/Minecraft/Source2']
 sources = ['C:/Users/david/Documents/Minecraft/Source'] 
-# enter directory where you want to save the generated dataset/datasets. If you are going to upload the dataset via ftp, you don't need to change this
-#output_directory = 'C:/Users/david/Documents/Minecraft/Tiled'
-zoom = 15 # enter your zoom level
+# enter directory where you want to save the generated dataset/datasets. 
+#If you wish to upload the dataset via ftp, change it to the path on your server (ex. Dataset/Tiled)
+#Set it to None if you want to upload the dataset to root folder of your FTP/SFTP user
+output = 'C:/Users/david/Documents/Minecraft/Tiled'
+zoom = 15 #enter your zoom level
 resampling_algorithm = 'near' # use near for most accurate color. Look at the resampling algorithm's comparison image on the wiki for other algorithms
 manual_nodata_value = None #Leave at None to use the defined NODATA value of the source file, or set it to value, if your source files don't have NODATA defined
-convert_feet_to_meters = False #Set to True, if your dataset heights are in feet
+convert_feet_to_meters = True #Set to True, if your dataset heights are in feet
 
 ftp_upload = False # Set to True for upload to FTP server
 ftp_one_file = False #Set to True to upload one zip file (RenderedDataset.zip) to FTP server
 ftp_s = False # Set to True, if you want to upload to a FTPS server
 ftp_upload_url = '' # FTP url to upload to (Only IP address or domain, ex 192.168.0.26)
 ftp_upload_port = 21 # FTP port, ex. 2121. Must be set
-# FTP folder to upload zoom folder to, ex. 'Dataset/Tiled'. Leave at None if you want to upload zoom folder to ftp server root
-ftp_upload_folder = None
 ftp_user = None # Leave at None for anonymous login, else set to user name, ex. 'davix'
 ftp_password = None # Leave at None for anonymous login, else set to user password, ex. 'password'
 
@@ -120,42 +122,66 @@ class Tile:
         self.querysize = querysize
 
 class Job:
-    def __init__(self, zoom_folder, zoom_level, input_file, bandsCount, resampling, ftpUpload, ftpOnefile, ftpS, ftpUrl, ftpPort, ftpFolder, ftpUser, ftpPassword, datasetName):
+    def __init__(self, zoom_folder, zoom_level, input_file, bandsCount, resampling, output_path, ftpUpload, ftpOnefile, ftpS, ftpUrl, ftpPort, ftpUser, ftpPassword, datasetName):
         self.zoom_folder = zoom_folder
         self.zoom_level = zoom_level
         self.input_file = input_file
         self.bandsCount = bandsCount
         self.resampling = resampling
+        self.outputPath = output_path
         self.ftpUpload = ftpUpload
         self.ftpOnefile = ftpOnefile
         self.ftpS = ftpS
         self.ftpUrl = ftpUrl
         self.ftpPort = ftpPort
-        self.ftpFolder = ftpFolder
         self.ftpUser = ftpUser
         self.ftpPassword = ftpPassword
         self.datasetName = datasetName
     
 class TaskData:
-    def __init__(self, datasetName, sourceIndex, sourcesArray, timeStartedFirst):
-        self.datasetName = datasetName
+    def __init__(self, sourceIndex, sourcesArray, timeStartedFirst):
         self.sourceIndex = sourceIndex
         self.sourcesArray = sourcesArray
         self.timeStartedFirst = timeStartedFirst
-        self.reset()
+
+    def getDatasetName(self):
+        return self.sourcesArray[self.sourceIndex].datasetName
     
-    def reset(self):
-        self.sourceTilesCount = 0
-        self.timeStarted = None
+    def getSourcePath(self):
+        return self.sourcesArray[self.sourceIndex].sourcePath
     
     def setTilesCount(self, tiles_count):
-        self.sourceTilesCount = tiles_count
+        self.sourcesArray[self.sourceIndex].sourceTilesCount = tiles_count
+
+    def getTilesCount(self):
+        return self.sourcesArray[self.sourceIndex].sourceTilesCount
     
     def setTimeStarted(self, time_started):
-        self.timeStarted = time_started
+        self.sourcesArray[self.sourceIndex].timeStarted = time_started
+
+    def getTimeStarted(self):
+        return self.sourcesArray[self.sourceIndex].timeStarted
+    
+    def setSourceBounds(self, wgs_minx, wgs_minz, wgs_maxx, wgs_maxz):
+        self.sourcesArray[self.sourceIndex].sourceBounds = [wgs_minx, wgs_minz, wgs_maxx, wgs_maxz]
+
+    def setSourceIndex(self, source_index):
+        if source_index < len(self.sourcesArray):
+            self.sourceIndex = source_index
+            return True
+        else:
+            return False
 
     def genTaskName(self):
-        return 'Create {dataset_name} elevation dataset ({index}/{length})'.format(dataset_name=self.datasetName, index=self.sourceIndex + 1, length=len(self.sourcesArray))
+        return 'Create {dataset_name} elevation dataset ({index}/{length})'.format(dataset_name=self.getDatasetName(), index=self.sourceIndex + 1, length=len(self.sourcesArray))
+
+class SourceDataset:
+    def __init__(self, source_path):
+        self.sourcePath = source_path
+        self.datasetName = os.path.basename(source_path)
+        self.sourceTilesCount = 0
+        self.timeStarted = None
+        self.sourceBounds = None
 
 class ColorRamp:
     def __init__(self, altitude, cftm):
@@ -202,8 +228,7 @@ def genTiles(task, taskData):
             cpu_count = thread_count
 
         sources_length = len(taskData.sourcesArray)
-        source_folder = taskData.sourcesArray[taskData.sourceIndex]
-        taskData.datasetName = os.path.basename(source_folder)
+        source_folder = taskData.getSourcePath()
 
         files = []
         for src in glob.iglob(source_folder + '**/**', recursive=True):
@@ -225,7 +250,7 @@ def genTiles(task, taskData):
         else:
             QgsMessageLog.logMessage(
                         'Started processing {count} files in {dataset_name}({index}/{length}) to the combined output dataset'
-                        .format(count=len(files), dataset_name=taskData.datasetName, index=taskData.sourceIndex + 1, length=sources_length),
+                        .format(count=len(files), dataset_name=taskData.getDatasetName(), index=taskData.sourceIndex + 1, length=sources_length),
                         CATEGORY, Qgis.Info)
             
 
@@ -489,10 +514,12 @@ def genTiles(task, taskData):
         if single_source_mode:
             QgsMessageLog.logMessage('The dataset bounds are (in WGS84 [EPSG:4326]), minX: {minX}, minZ: {minZ}, maxX: {maxX}, maxZ: {maxZ}'.format(minX=str(wgs_minx),minZ=str(wgs_minz),maxX=str(wgs_maxx),maxZ=str(wgs_maxz)), CATEGORY, Qgis.Info)
         else:
-            QgsMessageLog.logMessage('The dataset bounds for the {dataset_name} dataset are (in WGS84 [EPSG:4326]), minX: {minX}, minZ: {minZ}, maxX: {maxX}, maxZ: {maxZ}'.format(dataset_name=taskData.datasetName, minX=str(wgs_minx),minZ=str(wgs_minz),maxX=str(wgs_maxx),maxZ=str(wgs_maxz)), CATEGORY, Qgis.Info)
+            QgsMessageLog.logMessage('The dataset bounds for the {dataset_name} dataset are (in WGS84 [EPSG:4326]), minX: {minX}, minZ: {minZ}, maxX: {maxX}, maxZ: {maxZ}'.format(dataset_name=taskData.getDatasetName(), minX=str(wgs_minx),minZ=str(wgs_minz),maxX=str(wgs_maxx),maxZ=str(wgs_maxz)), CATEGORY, Qgis.Info)
         
-        QgsMessageLog.logMessage('Use this info for following step F in Part two: Generating/using your dataset',CATEGORY, Qgis.Info)
+        QgsMessageLog.logMessage('Optional: Take note of these bounds if you want to manually create the entries in heights.json \n as described in step F. of Part two: Generating/using your dataset',CATEGORY, Qgis.Info)
 
+        taskData.setSourceBounds(wgs_minx, wgs_minz, wgs_maxx, wgs_maxz)
+        
         base_x = 0
         base_y = 0
 
@@ -544,20 +571,20 @@ def genTiles(task, taskData):
         if single_source_mode:
             QgsMessageLog.logMessage('Creating output folders', CATEGORY, Qgis.Info)
         else:
-            QgsMessageLog.logMessage('Creating output folders for {dataset_name} dataset'.format(dataset_name=taskData.datasetName), CATEGORY, Qgis.Info)
+            QgsMessageLog.logMessage('Creating output folders for {dataset_name} dataset'.format(dataset_name=taskData.getDatasetName()), CATEGORY, Qgis.Info)
 
         mx = start_tile_x + x_tiles
         zoom_folder = ''
         temp_folder = os.path.join(source_folder, 'TEMP')
         if not ftp_upload:
             if single_source_mode:
-                zoom_folder = os.path.join(output_directory, str(zoom)).replace("\\","/")
+                zoom_folder = os.path.join(output, str(zoom)).replace("\\","/")
             else:
-                output_directory_dataset = os.path.join(output_directory, taskData.datasetName).replace("\\","/")
-                if not os.path.isdir(output_directory_dataset):
-                    os.mkdir(output_directory_dataset)
+                output_dataset = os.path.join(output, taskData.getDatasetName()).replace("\\","/")
+                if not os.path.isdir(output_dataset):
+                    os.mkdir(output_dataset)
 
-                zoom_folder = os.path.join(output_directory_dataset, str(zoom)).replace("\\","/")
+                zoom_folder = os.path.join(output_dataset, str(zoom)).replace("\\","/")
         else:
             if os.path.isdir(temp_folder):
                 shutil.rmtree(temp_folder)
@@ -572,7 +599,7 @@ def genTiles(task, taskData):
 
         zip_file_name = 'RenderedDataset.zip'
         if single_source_mode is False:
-            zip_file_name = 'RenderedDataset_{dataset_name}.zip'.format(dataset_name=taskData.datasetName)
+            zip_file_name = 'RenderedDataset_{dataset_name}.zip'.format(dataset_name=taskData.getDatasetName())
         
         zip_file = os.path.join(zoom_folder, zip_file_name).replace("\\","/")
         rd_file = None
@@ -592,13 +619,13 @@ def genTiles(task, taskData):
                 else:
                     ftp.login(user=ftp_user, passwd=ftp_password)
 
-                if ftp_upload_folder is not None:
-                    ftp.cwd(ftp_upload_folder)
+                if output is not None:
+                    ftp.cwd(output)
                 
                 if single_source_mode is False:
-                    if not isFTPDir(ftp, taskData.datasetName):
-                        ftp.mkd(taskData.datasetName)
-                    ftp.cwd(taskData.datasetName)
+                    if not isFTPDir(ftp, taskData.getDatasetName()):
+                        ftp.mkd(taskData.getDatasetName())
+                    ftp.cwd(taskData.getDatasetName())
 
 
                 if not isFTPDir(ftp, str(zoom)):
@@ -631,7 +658,7 @@ def genTiles(task, taskData):
             sub_min_x += x_diff
             sub_max_x += x_diff
 
-        job = Job(zoom_folder, str(zoom), input_file, getBands(dst_ds), resampling_algorithm, ftp_upload, ftp_one_file, ftp_s ,ftp_upload_url, ftp_upload_port, ftp_upload_folder, ftp_user, ftp_password, taskData.datasetName)
+        job = Job(zoom_folder, str(zoom), input_file, getBands(dst_ds), resampling_algorithm, output, ftp_upload, ftp_one_file, ftp_s ,ftp_upload_url, ftp_upload_port, ftp_user, ftp_password, taskData.getDatasetName())
 
         dst_ds = None
 
@@ -643,7 +670,7 @@ def genTiles(task, taskData):
             if single_source_mode:
                 QgsMessageLog.logMessage('Started tilling vrt in single-thread mode', CATEGORY, Qgis.Info)
             else:
-                QgsMessageLog.logMessage('Started tilling vrt for {dataset_name}({index}/{length}) dataset in single-thread mode'.format(dataset_name=taskData.datasetName, index=taskData.sourceIndex + 1, length=sources_length), CATEGORY, Qgis.Info)
+                QgsMessageLog.logMessage('Started tilling vrt for {dataset_name}({index}/{length}) dataset in single-thread mode'.format(dataset_name=taskData.getDatasetName(), index=taskData.sourceIndex + 1, length=sources_length), CATEGORY, Qgis.Info)
             rt = 0
             cf = len(tiled)
             for tile in tiled:
@@ -666,7 +693,7 @@ def genTiles(task, taskData):
                 QgsMessageLog.logMessage('Started tilling vrt in multithread mode with {count} threads'.format(count=cpu_count), CATEGORY, Qgis.Info)
             else:
                 QgsMessageLog.logMessage('Started tilling vrt for {dataset_name}({index}/{length}) dataset in multithread mode with {count} threads'
-                                         .format(dataset_name=taskData.datasetName, index=taskData.sourceIndex + 1, length=sources_length,count=cpu_count), CATEGORY, Qgis.Info)
+                                         .format(dataset_name=taskData.getDatasetName(), index=taskData.sourceIndex + 1, length=sources_length,count=cpu_count), CATEGORY, Qgis.Info)
 
             gdal_cache_max = gdal.GetCacheMax()
             gdal_cache_max_per_process = max(1024 * 1024, math.floor(gdal_cache_max / cpu_count))
@@ -708,8 +735,8 @@ def genTiles(task, taskData):
             else:
                 ftp.login(user=job.ftpUser, passwd=job.ftpPassword)
 
-            if job.ftpFolder is not None:
-                ftp.cwd(job.ftpFolder)
+            if job.outputPath is not None:
+                ftp.cwd(job.outputPath)
 
             ftapr = FTPArchiveProgress(int(totalSize), task)
 
@@ -726,12 +753,12 @@ def genTiles(task, taskData):
             if single_source_mode:
                 QgsMessageLog.logMessage('Tiled and uploaded dataset with {count} tiles to ftp server'.format(count=realtiles), CATEGORY, Qgis.Info)
             else:
-                QgsMessageLog.logMessage('Tiled and uploaded {dataset_name} dataset ({index}/{length})  with {count} tiles to ftp server'.format(dataset_name=taskData.datasetName, index=taskData.sourceIndex + 1, length=sources_length, count=realtiles), CATEGORY, Qgis.Info)
+                QgsMessageLog.logMessage('Tiled and uploaded {dataset_name} dataset ({index}/{length})  with {count} tiles to ftp server'.format(dataset_name=taskData.getDatasetName(), index=taskData.sourceIndex + 1, length=sources_length, count=realtiles), CATEGORY, Qgis.Info)
         else:
             if single_source_mode:
                 QgsMessageLog.logMessage('Tiled dataset with {count} tiles'.format(count=realtiles), CATEGORY, Qgis.Info)
             else:
-                QgsMessageLog.logMessage('Tiled {dataset_name} dataset ({index}/{length}) with {count} tiles'.format(dataset_name=taskData.datasetName, index=taskData.sourceIndex + 1, length=sources_length, count=realtiles), CATEGORY, Qgis.Info)
+                QgsMessageLog.logMessage('Tiled {dataset_name} dataset ({index}/{length}) with {count} tiles'.format(dataset_name=taskData.getDatasetName(), index=taskData.sourceIndex + 1, length=sources_length, count=realtiles), CATEGORY, Qgis.Info)
 
         # Clean up
         if cleanup:
@@ -971,11 +998,11 @@ def tileVrt(job_data, tile_data):
             else:
                 ftp.login(user=job_data.ftpUser, passwd=job_data.ftpPassword)
 
-            if job_data.ftpFolder is not None:
-                ftp.cwd(job_data.ftpFolder)
+            if job_data.outputPath is not None:
+                ftp.cwd(job_data.outputPath)
 
             if single_source_mode is False:
-                ftp.cwd(job_data.datasetName)
+                ftp.cwd(job_data.getDatasetName())
             
             ftp.cwd(str(job_data.zoom_level) + '/' + tile_data.x)
             with open(tile, 'rb') as tile_file:
@@ -992,48 +1019,146 @@ def tileVrt(job_data, tile_data):
 
     return tile_data
 
+def getHeightsEntry(url_path, zoom_level, minx, minz, maxx, maxz):
+    height_entry = {
+        "dataset" : {
+            "urls" : [ url_path],
+            "projection" : {
+                "web_mercator" : {
+                    "zoom" : zoom_level
+                }
+            },
+            "resolution" : 256,
+            "blend" : "CUBIC",
+            "parse" : {
+                "parse_png_terrarium" : {}
+            }
+        },
+        "bounds" : {
+            "minX" : minx,
+            "maxX" : maxx,
+            "minZ" : minz,
+            "maxZ" : maxz
+        },
+        "zooms" : {
+            "min" : 0,
+            "max" : 3
+        },
+        "priority" : 100
+    }
+
+    return height_entry
+    
+
+def genHeightsConfig(taskData):
+    sources_array = taskData.sourcesArray
+    heights_list = []
+
+    for source in sources_array:
+        wgs_minx, wgs_minz, wgs_maxx, wgs_maxz = source.sourceBounds
+        url_path = "file://"
+        if output is not None:
+            url_path += f"{output}/"
+        if single_source_mode is False:
+            url_path += f"{source.datasetName}/"
+        url_path += str(zoom) + "/${x}/${z}.png"
+
+        heights_list.append(getHeightsEntry(url_path, zoom, wgs_minx, wgs_minz, wgs_maxx, wgs_maxz))
+
+    raw_json = json.dumps(heights_list, indent=4)
+
+    if ftp_upload:
+        #Upload heights config to the server via ftp
+        
+        ftp = None
+        if ftp_s:
+            ftp = FTP_TLS()
+        else:
+            ftp = FTP()
+        ftp.connect(ftp_upload_url, ftp_upload_url)
+
+        if ftp_user is None or ftp_password is None:
+            ftp.login()
+        else:
+            ftp.login(user=ftp_user, passwd=ftp_password)
+
+        if output is not None:
+            ftp.cwd(output)
+
+        json_byte = io.BytesIO()
+        json_byte.write(raw_json.encode())
+        json_byte.seek(0)
+
+        ftp.storbinary('STOR heightsTemplate.json', json_byte)
+
+        if output is not None:
+            QgsMessageLog.logMessage(f"Uploaded heightsTemplate.json to the {output} folder on your server", 
+                CATEGORY, 
+                Qgis.Info)
+        else:
+            QgsMessageLog.logMessage("Uploaded heightsTemplate.json to the root folder of your server", 
+                CATEGORY, 
+                Qgis.Info)
+
+    elif output is not None:
+        heights_template_path = os.path.join(output, "heightsTemplate.json")
+
+        with open(heights_template_path, "w") as heightsTemplate:
+            heightsTemplate.write(raw_json)
+
+        QgsMessageLog.logMessage(f"Created heightsTemplate.json in the {output} folder", 
+                CATEGORY, 
+                Qgis.Info)
+    
+    QgsMessageLog.logMessage("Head to step F. of Part two: Generating/using your dataset to set it up", CATEGORY, Qgis.Info)
+
+
 def taskComplete(task, taskData=None):
     if taskData is not None:
         time_end = datetime.now()
-        eclipsed = (time_end - taskData.timeStarted).total_seconds() / 60.0
+        eclipsed = (time_end - taskData.getTimeStarted()).total_seconds() / 60.0
         minutes = math.floor(eclipsed)
         seconds = math.floor((eclipsed - minutes) * 60)
         if single_source_mode:
-            QgsMessageLog.logMessage('Done creating dataset with {count} tiles in {minutes} minutes and {seconds} seconds'.format(count=taskData.sourceTilesCount, minutes=minutes, seconds=seconds), CATEGORY, Qgis.Info)
+            QgsMessageLog.logMessage('Done creating dataset with {count} tiles in {minutes} minutes and {seconds} seconds'.format(count=taskData.getTilesCount(), minutes=minutes, seconds=seconds), CATEGORY, Qgis.Info)
         else:
-            QgsMessageLog.logMessage('Done creating {dataset_name} dataset ({index}/{lenght}) with {count} tiles in {minutes} minutes and {seconds} seconds'.format(dataset_name=taskData.datasetName, index=taskData.sourceIndex + 1, lenght=len(taskData.sourcesArray), count=taskData.sourceTilesCount, minutes=minutes, seconds=seconds), CATEGORY, Qgis.Info)
+            QgsMessageLog.logMessage('Done creating {dataset_name} dataset ({index}/{lenght}) with {count} tiles in {minutes} minutes and {seconds} seconds'.format(dataset_name=taskData.getDatasetName(), index=taskData.sourceIndex + 1, lenght=len(taskData.sourcesArray), count=taskData.getTilesCount(), minutes=minutes, seconds=seconds), CATEGORY, Qgis.Info)
 
             #Move onto next source in the sources array
-            if taskData.sourceIndex + 1 < len(taskData.sourcesArray):
-                taskData.sourceIndex += 1
-                taskData.reset()
-
+            if taskData.setSourceIndex(taskData.sourceIndex + 1):
                 globals()['dataset_task'] = QgsTask.fromFunction(taskData.genTaskName(), genTiles, on_finished=taskComplete, taskData=taskData)
-                QgsApplication.taskManager().addTask(globals()['dataset_task'])
+                QgsApplication.taskManager().addTask(globals()['dataset_task'])                
             else:
                 time_end = datetime.now()
                 eclipsed = (time_end - taskData.timeStartedFirst).total_seconds() / 60.0
                 minutes = math.floor(eclipsed)
                 seconds = math.floor((eclipsed - minutes) * 60)
                 QgsMessageLog.logMessage('Done creating all datasets in {minutes} minutes and {seconds} seconds'.format(minutes=minutes, seconds=seconds), CATEGORY, Qgis.Info)
+                genHeightsConfig(taskData)
 
 sources_list = []
 
 for source in sources:
-    if source not in sources_list:
-        sources_list.append(source)
+    source_path = source.replace("\\","/")
+    if source_path not in sources_list:
+        sources_list.append(source_path)
 
 single_source_mode = True
 if len(sources_list) > 1:
     single_source_mode = False
 
+sources_array = []
+for source in sources_list:
+    sources_array.append(SourceDataset(source))
 
-source_one_name = os.path.basename(sources_list[0])
-task_data = TaskData(source_one_name, 0, sources_list, datetime.now())
+source_one_name = sources_array[0].datasetName
+task_data = TaskData(0, sources_array, datetime.now())
 
 task_one_name = 'Create elevation dataset'
 if single_source_mode is False:
     task_one_name = task_data.genTaskName()
+
+output = output.replace("\\","/")
 
 globals()['dataset_task'] = QgsTask.fromFunction(task_one_name, genTiles, on_finished=taskComplete, taskData=task_data)
 QgsApplication.taskManager().addTask(globals()['dataset_task'])
