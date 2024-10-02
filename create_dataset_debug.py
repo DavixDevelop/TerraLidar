@@ -4,73 +4,36 @@ import os
 import sys
 from osgeo import gdal
 from osgeo import gdalconst
+from osgeo import osr
 from qgis.utils import iface
 from qgis.core import QgsProject
 from qgis.core import QgsApplication
-from pathlib import Path
-import shutil
 from time import sleep
 import multiprocessing
-from multiprocessing import Pool
 import concurrent.futures
-import subprocess
-import numpy
 from itertools import repeat
-from functools import partial
 from datetime import datetime
-from operator import itemgetter
 import threading
-from ftplib import FTP_TLS
-from ftplib import FTP
 from lxml import etree
 from difflib import SequenceMatcher
-import json
-import io
+import random
 import traceback
 
-try:
-    from PIL import Image
-    import numpy
-    import osgeo.gdal_array as gdalarray
-    numpy_available = True
-except ImportError:
-    # 'antialias' resampling is not available
-    numpy_available = False
-
-
-CATEGORY = 'CreateDataset'
+CATEGORY = 'CreateDataset_Debug'
 
 # enter one or more directory where your source files are
 # ex. ['C:/Users/david/Documents/Minecraft/Source','C:/Users/david/Documents/Minecraft/Source2']
 sources = ['C:/Users/david/Documents/Minecraft/Source'] 
-# enter directory where you want to save the generated dataset/datasets. 
-#If you wish to upload the dataset via ftp, change it to the path on your server (ex. Dataset/Tiled)
-#Set it to None if you want to upload the dataset to root folder of your FTP/SFTP user
-output = 'C:/Users/david/Documents/Minecraft/Tiled'
-zoom = 15 #enter your zoom level
-resampling_algorithm = 'near' # use near for most accurate color. Look at the resampling algorithm's comparison image on the wiki for other algorithms
+zoom = 17 #enter your zoom level
 manual_nodata_value = None #Leave at None to use the defined NODATA value of the source file, or set it to value, if your source files don't have NODATA defined
 convert_feet_to_meters = False #Set to True, if your dataset heights are in feet
 
-ftp_upload = False # Set to True for upload to FTP server
-ftp_one_file = False #Set to True to upload one zip file (RenderedDataset.zip) to FTP server
-ftp_s = False # Set to True, if you want to upload to a FTPS server
-ftp_upload_url = '' # FTP url to upload to (Only IP address or domain, ex 192.168.0.26)
-ftp_upload_port = 21 # FTP port, ex. 2121. Must be set
-ftp_user = None # Leave at None for anonymous login, else set to user name, ex. 'davix'
-ftp_password = None # Leave at None for anonymous login, else set to user password, ex. 'password'
-
-cleanup = True # Set to False if you don't wish to delete VRT file and supporting files once the script completes. It will still do a cleanup, if you run the script again
+cleanup = False # Set to False if you don't wish to delete VRT file and supporting files once the script completes. It will still do a cleanup, if you run the script again
 thread_count = None #Set to the number of threads you want to use. Preferably don't use all threads at once. Leave at at None to use all threads
 
 localThread = threading.local()
 
 single_source_mode = None
-
-try:
-    import zipfile
-except ImportError:
-    ftpOnefile = False
 
 
 # Modified version of scale_query_to_tile from gdal2tiles
@@ -123,21 +86,15 @@ class Tile:
         self.querysize = querysize
 
 class Job:
-    def __init__(self, zoom_folder, zoom_level, input_file, bandsCount, resampling, output_path, ftpUpload, ftpOnefile, ftpS, ftpUrl, ftpPort, ftpUser, ftpPassword, datasetName):
-        self.zoom_folder = zoom_folder
+    def __init__(self, zoom_level, input_file, bandsCount, datasetName):
         self.zoom_level = zoom_level
         self.input_file = input_file
         self.bandsCount = bandsCount
-        self.resampling = resampling
-        self.outputPath = output_path
-        self.ftpUpload = ftpUpload
-        self.ftpOnefile = ftpOnefile
-        self.ftpS = ftpS
-        self.ftpUrl = ftpUrl
-        self.ftpPort = ftpPort
-        self.ftpUser = ftpUser
-        self.ftpPassword = ftpPassword
         self.datasetName = datasetName
+        self.error_tiles = []
+
+    def addError(self, tile_data):
+        self.error_tiles.append(tile_data)
     
 class TaskData:
     def __init__(self, sourceIndex, sourcesArray, timeStartedFirst):
@@ -174,7 +131,7 @@ class TaskData:
             return False
 
     def genTaskName(self):
-        return 'Create {dataset_name} elevation dataset ({index}/{length})'.format(dataset_name=self.getDatasetName(), index=self.sourceIndex + 1, length=len(self.sourcesArray))
+        return 'Debug {dataset_name} elevation dataset ({index}/{length})'.format(dataset_name=self.getDatasetName(), index=self.sourceIndex + 1, length=len(self.sourcesArray))
 
 class SourceDataset:
     def __init__(self, source_path):
@@ -239,18 +196,18 @@ def genTiles(task, taskData):
                 fileinfo = QFileInfo(src)
                 filename = fileinfo.completeBaseName()
                 files.append([src, filename])
-
+        
         if len(files) == 0:
             taskData.setTilesCount(0)
             return taskData
 
         if single_source_mode:
             QgsMessageLog.logMessage(
-                        'Started creating dataset out of {count} files'.format(count=len(files)),
+                        'Started checking dataset out of {count} files'.format(count=len(files)),
                         CATEGORY, Qgis.Info)
         else:
             QgsMessageLog.logMessage(
-                        'Started processing {count} files in {dataset_name}({index}/{length}) to the combined output dataset'
+                        'Started checking {count} files in {dataset_name}({index}/{length})'
                         .format(count=len(files), dataset_name=taskData.getDatasetName(), index=taskData.sourceIndex + 1, length=sources_length),
                         CATEGORY, Qgis.Info)
             
@@ -361,8 +318,6 @@ def genTiles(task, taskData):
             else:
                 cf -= 1
 
-        org_files = None
-
         # Find minV and maxV from statistics
 
         minV = None
@@ -460,7 +415,7 @@ def genTiles(task, taskData):
         #If it's the similarity ratio is greater then 0.9, the script removed the 2nd key-pair
         #Finally set's the first key-pair key to the NODATA value, It's value to 0 (0 byte, ergo Transparent) 
         #and writes the changes to the VRT file
-        if os_name == "linux" and source_no_data_value is not None:
+        if os_name == "linux" and source_no_data_value is not None: 
             QgsMessageLog.logMessage(
                     'Checking for no data value in alpha raster band of terrarium vrt',
                     CATEGORY, Qgis.Info)
@@ -522,8 +477,6 @@ def genTiles(task, taskData):
             QgsMessageLog.logMessage('The dataset bounds are (in WGS84 [EPSG:4326]), minX: {minX}, minZ: {minZ}, maxX: {maxX}, maxZ: {maxZ}'.format(minX=str(wgs_minx),minZ=str(wgs_minz),maxX=str(wgs_maxx),maxZ=str(wgs_maxz)), CATEGORY, Qgis.Info)
         else:
             QgsMessageLog.logMessage('The dataset bounds for the {dataset_name} dataset are (in WGS84 [EPSG:4326]), minX: {minX}, minZ: {minZ}, maxX: {maxX}, maxZ: {maxZ}'.format(dataset_name=taskData.getDatasetName(), minX=str(wgs_minx),minZ=str(wgs_minz),maxX=str(wgs_maxx),maxZ=str(wgs_maxz)), CATEGORY, Qgis.Info)
-        
-        QgsMessageLog.logMessage('Optional: Take note of these bounds if you want to manually create the entries in heights.json \n as described in step F. of Part two: Generating/using your dataset',CATEGORY, Qgis.Info)
 
         taskData.setSourceBounds(wgs_minx, wgs_minz, wgs_maxx, wgs_maxz)
         
@@ -573,86 +526,8 @@ def genTiles(task, taskData):
         if start_tile_y > 0:
             start_tile_y -= 1
 
-        QgsMessageLog.logMessage('Start tile: {tx} ({mlon}), {ty} ({mxlat}), Tiles to generate: {xt} (Width: {xtx} Height: {xty})'.format(tx=start_tile_x, mlon=min_x, ty=start_tile_y, mxlat=max_y, xt=((x_tiles + 1) * (y_tiles + 1)), xtx=x_tiles,xty=y_tiles), CATEGORY, Qgis.Info)
-
-        if single_source_mode:
-            QgsMessageLog.logMessage('Creating output folders', CATEGORY, Qgis.Info)
-        else:
-            QgsMessageLog.logMessage('Creating output folders for {dataset_name} dataset'.format(dataset_name=taskData.getDatasetName()), CATEGORY, Qgis.Info)
-
-        mx = start_tile_x + x_tiles
-        zoom_folder = ''
-        temp_folder = os.path.join(source_folder, 'TEMP')
-        if not ftp_upload:
-            if single_source_mode:
-                zoom_folder = os.path.join(output, str(zoom)).replace("\\","/")
-            else:
-                output_dataset = os.path.join(output, taskData.getDatasetName()).replace("\\","/")
-                if not os.path.isdir(output_dataset):
-                    os.mkdir(output_dataset)
-
-                zoom_folder = os.path.join(output_dataset, str(zoom)).replace("\\","/")
-        else:
-            if os.path.isdir(temp_folder):
-                shutil.rmtree(temp_folder)
-            os.mkdir(temp_folder)
-            zoom_folder = os.path.join(temp_folder ,str(zoom)).replace("\\","/")
-        if not os.path.isdir(zoom_folder):
-            os.mkdir(zoom_folder)
-        for x in range(start_tile_x, mx):
-            folderx = os.path.join(zoom_folder, str(x)).replace("\\","/")
-            if not os.path.isdir(folderx):
-                os.mkdir(folderx)
-
-        zip_file_name = 'RenderedDataset.zip'
-        if single_source_mode is False:
-            zip_file_name = 'RenderedDataset_{dataset_name}.zip'.format(dataset_name=taskData.getDatasetName())
-        
-        zip_file = os.path.join(zoom_folder, zip_file_name).replace("\\","/")
-        rd_file = None
-        if ftp_upload:
-            if ftp_one_file:
-                rd_file = zipfile.ZipFile(zip_file, 'w', zipfile.ZIP_DEFLATED)
-            else:
-                QgsMessageLog.logMessage('Creating output folders on target ftp server', CATEGORY, Qgis.Info)
-                ftp = None
-                if ftp_s:
-                    ftp = FTP_TLS()
-                else:
-                    ftp = FTP()
-                ftp.connect(ftp_upload_url, ftp_upload_port)
-                if ftp_user is None or ftp_password is None:
-                    ftp.login()
-                else:
-                    ftp.login(user=ftp_user, passwd=ftp_password)
-
-                if output is not None:
-                    ftp.cwd(output)
-                
-                if single_source_mode is False:
-                    if not isFTPDir(ftp, taskData.getDatasetName()):
-                        ftp.mkd(taskData.getDatasetName())
-                    ftp.cwd(taskData.getDatasetName())
-
-
-                if not isFTPDir(ftp, str(zoom)):
-                    ftp.mkd(str(zoom))
-
-                ftp.cwd(str(zoom))
-
-                for x in range(start_tile_x, mx):
-                    ftp.mkd(str(x))
-
-                ftp.quit()
-
-
-        sleep(0.01)
-
-        QgsMessageLog.logMessage('Created {ct} folders'.format(ct=x_tiles), CATEGORY, Qgis.Info)
-
         tiled = []
 
-        # Tile dataset
         sub_min_x = min_x
         sub_max_x = min_x + x_diff
         for x in range(start_tile_x, start_tile_x + x_tiles):
@@ -665,43 +540,28 @@ def genTiles(task, taskData):
             sub_min_x += x_diff
             sub_max_x += x_diff
 
-        job = Job(zoom_folder, str(zoom), input_file, getBands(dst_ds), resampling_algorithm, output, ftp_upload, ftp_one_file, ftp_s ,ftp_upload_url, ftp_upload_port, ftp_user, ftp_password, taskData.getDatasetName())
+        job = Job(str(zoom), input_file, getBands(dst_ds), taskData.getDatasetName())
 
         dst_ds = None
 
-        # Tile the dataset
+        # Catch error while reading dataset
 
         realtiles = 0
 
         if cpu_count == 1:
-            if single_source_mode:
-                QgsMessageLog.logMessage('Started tilling vrt in single-thread mode', CATEGORY, Qgis.Info)
-            else:
-                QgsMessageLog.logMessage('Started tilling vrt for {dataset_name}({index}/{length}) dataset in single-thread mode'.format(dataset_name=taskData.getDatasetName(), index=taskData.sourceIndex + 1, length=sources_length), CATEGORY, Qgis.Info)
             rt = 0
             cf = len(tiled)
             for tile in tiled:
                 res = tileVrt(job, tile)
                 if res is not None:
-                    if job.ftpUpload and job.ftpOnefile:
-                        addToZIP(job, res, rd_file)
                     realtiles += 1
                 rt += 1
-                if job.ftpUpload and job.ftpOnefile:
-                    task.setProgress(max(0, min(int(((rt * 40) / cf) + 20), 100)))
-                else:
-                    task.setProgress(max(0, min(int(((rt * 80) / cf) + 20), 100)))
+                task.setProgress(max(0, min(int(((rt * 80) / cf) + 20), 100)))
 
             if getattr(localThread, 'ds', None):
                 del localThread.ds
 
         else:
-            if single_source_mode:
-                QgsMessageLog.logMessage('Started tilling vrt in multithread mode with {count} threads'.format(count=cpu_count), CATEGORY, Qgis.Info)
-            else:
-                QgsMessageLog.logMessage('Started tilling vrt for {dataset_name}({index}/{length}) dataset in multithread mode with {count} threads'
-                                         .format(dataset_name=taskData.getDatasetName(), index=taskData.sourceIndex + 1, length=sources_length,count=cpu_count), CATEGORY, Qgis.Info)
-
             gdal_cache_max = gdal.GetCacheMax()
             gdal_cache_max_per_process = max(1024 * 1024, math.floor(gdal_cache_max / cpu_count))
             setCacheMax(gdal_cache_max_per_process)
@@ -714,58 +574,61 @@ def genTiles(task, taskData):
             realtiles = 0
             for res in tm:
                 if res is not None:
-                    if job.ftpUpload and job.ftpOnefile:
-                        addToZIP(job, res, rd_file)
                     realtiles += 1
                 rt += 1
-                if job.ftpUpload and job.ftpOnefile:
-                    task.setProgress(max(0, min(int(((rt * 40) / cf) + 20), 100)))
-                else:
-                    task.setProgress(max(0, min(int(((rt * 80) / cf) + 20), 100)))
+                task.setProgress(max(0, min(int(((rt * 80) / cf) + 20), 100)))
 
             setCacheMax(gdal_cache_max)
 
-        if job.ftpUpload and job.ftpOnefile:
-            rd_file.close()
-            totalSize = os.path.getsize(zip_file)
-            QgsMessageLog.logMessage('Starting uploading rendered archive ({size} GB) out of {count} tiles'.format(count=realtiles, size=str(round(totalSize * 9.3132257461548E-10, 4))), CATEGORY, Qgis.Info)
+        if len(job.error_tiles) > 0:
+            QgsMessageLog.logMessage('Caught error tiles', CATEGORY, Qgis.Info)
+            #Calculate geo extents of error tile
+            #Each item is a bound in WGS84
+            geo_error_tiles = []
+            web_merc_proj = osr.SpatialReference()
+            web_merc_proj.ImportFromEPSG(3857)
+            wgs_proj = osr.SpatialReference()
+            wgs_proj.ImportFromEPSG(4326)
+            web_merc_to_wgs_transform = osr.CoordinateTransformation(web_merc_proj, wgs_proj)
+            for error_tile in job.error_tiles:
+                #Calculate top left corner coords
+                t_ulx, t_uly, _ = web_merc_to_wgs_transform.TransformPoint(ulx + error_tile.rx * xres + error_tile.ry * xskew, uly + error_tile.rx * yskew + error_tile.ry * yres)
+                #Calculate bottom right corner coords
+                t_lrx, t_lry, _ = web_merc_to_wgs_transform.TransformPoint(ulx + (error_tile.rx + error_tile.rxsize) * xres + (error_tile.ry + error_tile.rysize) * xskew, uly + (error_tile.rx + error_tile.rxsize) * yskew + (error_tile.ry + error_tile.rysize) * yres)
+                geo_error_tiles.append([t_uly, t_ulx, t_lry, t_lrx])
 
-            ftp = None
-            if job.ftpS:
-                ftp = FTP_TLS()
-            else:
-                ftp = FTP()
-            ftp.connect(job.ftpUrl, job.ftpPort)
+            error_files = {}
 
-            if job.ftpUser is None or job.ftpPassword is None:
-                ftp.login()
-            else:
-                ftp.login(user=job.ftpUser, passwd=job.ftpPassword)
+            for org_file in org_files:
+                file_ds = gdal.Open(org_file, gdal.GA_ReadOnly)
+                f_info = gdal.Info(file_ds, format='json')
+                f_wgs_minx, f_wgs_minz = f_info['wgs84Extent']['coordinates'][0][1][0:2]
+                f_wgs_maxx, f_wgs_maxz = f_info['wgs84Extent']['coordinates'][0][3][0:2]
 
-            if job.outputPath is not None:
-                ftp.cwd(job.outputPath)
+                for error_tile_bound in geo_error_tiles:
+                    if (((error_tile_bound[0] >= f_wgs_minx and error_tile_bound[0] <= f_wgs_maxx) and 
+                         (error_tile_bound[1] >= f_wgs_minz and error_tile_bound[1] <= f_wgs_maxz)) or
+                        ((error_tile_bound[2] >= f_wgs_minx and error_tile_bound[2] <= f_wgs_maxx) and 
+                         (error_tile_bound[3] >= f_wgs_minz and error_tile_bound[3] <= f_wgs_maxz))):
+                        if org_file in error_files:
+                            file_error_tiles = error_files[org_file]
+                            file_error_tiles.append(error_tile_bound)
+                            error_files[org_file] = file_error_tiles
+                        else:
+                            file_error_tiles = []
+                            file_error_tiles.append(error_tile_bound)
+                            error_files[org_file] = file_error_tiles
+                
+                file_ds = None
 
-            ftapr = FTPArchiveProgress(int(totalSize), task)
-
-            with open(zip_file, 'rb') as rdf_file:
-                ftp.storbinary('STOR {dst_zip_file}'.format(dst_zip_file=zip_file_name), rdf_file, blocksize=1024, callback=ftapr.updateProgress)
-
-            ftp.quit()
+            error_file_paths = error_files.keys()
+            if len(error_file_paths) > 0:
+                for error_file_path in error_file_paths:
+                    file_error_tiles = error_files[error_file_path]
+                    QgsMessageLog.logMessage('Error occured for file: {ef} with the following tiles (ulx, uly, lrx, lry):'.format(ef=error_file_path), CATEGORY, Qgis.Info)
+                    for bounds in file_error_tiles:
+                        QgsMessageLog.logMessage("\t{t_ulx}, {t_ulx} | {t_lrx}, {t_lrx}".format(t_ulx=bounds[0], t_uly=bounds[1], t_lrx=bounds[2], t_lry=bounds[3]), CATEGORY, Qgis.Info)
             
-            if single_source_mode:
-                QgsMessageLog.logMessage('Uploaded rendered dataset archive {dst_zip_file} with {count} tiles. You can now unzip it.'.format(dst_zip_file=zip_file_name, count=realtiles), CATEGORY, Qgis.Info)
-            else:
-                QgsMessageLog.logMessage('Uploaded rendered dataset archive {dst_zip_file}({index}/{length}) with {count} tiles. You can now unzip it.'.format(dst_zip_file=zip_file_name,index=taskData.sourceIndex + 1, length=sources_length, count=realtiles), CATEGORY, Qgis.Info)
-        elif job.ftpUpload:
-            if single_source_mode:
-                QgsMessageLog.logMessage('Tiled and uploaded dataset with {count} tiles to ftp server'.format(count=realtiles), CATEGORY, Qgis.Info)
-            else:
-                QgsMessageLog.logMessage('Tiled and uploaded {dataset_name} dataset ({index}/{length})  with {count} tiles to ftp server'.format(dataset_name=taskData.getDatasetName(), index=taskData.sourceIndex + 1, length=sources_length, count=realtiles), CATEGORY, Qgis.Info)
-        else:
-            if single_source_mode:
-                QgsMessageLog.logMessage('Tiled dataset with {count} tiles'.format(count=realtiles), CATEGORY, Qgis.Info)
-            else:
-                QgsMessageLog.logMessage('Tiled {dataset_name} dataset ({index}/{length}) with {count} tiles'.format(dataset_name=taskData.getDatasetName(), index=taskData.sourceIndex + 1, length=sources_length, count=realtiles), CATEGORY, Qgis.Info)
 
         # Clean up
         if cleanup:
@@ -773,9 +636,6 @@ def genTiles(task, taskData):
             os.remove(vrt)
             os.remove(color_ramp_file)
             os.remove(terrarium_tile)
-
-            if job.ftpUpload:
-                shutil.rmtree(temp_folder)
 
             QgsMessageLog.logMessage('Cleaned up temp files', CATEGORY, Qgis.Info)
 
@@ -839,287 +699,35 @@ def calculateStat(tile):
                     CATEGORY, Qgis.Info)
         return None
 
-def isFTPDir(ftp, name):
-   try:
-      ftp.cwd(name)
-      ftp.cwd('..')
-      return True
-   except:
-      return False
-
-def addToZIP(job_data, tile_data, rd_file):
-    folder = os.path.join(job_data.zoom_folder, tile_data.x).replace("\\","/")
-    tileName = tile_data.y + ".png"
-    tile_file =  os.path.join(folder, tileName).replace("\\","/")
-
-    #Add tile to zip
-    rd_file.write(tile_file, os.path.join(job_data.zoom_level, str(tile_data.x), str(tile_data.y) + ".png"))
-    #Remove tile from TEMP
-    os.remove(tile_file)
-
-# Modified version of scale_query_to_tile from gdal2tiles
-#https://github.com/OSGeo/gdal/blob/master/gdal/swig/python/scripts/gdal2tiles.py
-def scaleTile(dsquery, dstile, resampling, tile=''):
-    querysize = dsquery.RasterXSize
-    tile_size = dstile.RasterXSize
-    tilebands = dstile.RasterCount
-
-    if resampling == 'average':
-
-        # Function: gdal.RegenerateOverview()
-        for i in range(1, tilebands + 1):
-            # Black border around NODATA
-            res = gdal.RegenerateOverview(dsquery.GetRasterBand(i), dstile.GetRasterBand(i),
-                                          'average')
-            if res != 0:
-                QgsMessageLog.logMessage("RegenerateOverview() failed on %s, error %d" % (
-                    tile, res), CATEGORY, Qgis.Info)
-
-    elif resampling == 'antialias' and numpy_available:
-
-        # Scaling by PIL (Python Imaging Library) - improved Lanczos
-        array = numpy.zeros((querysize, querysize, tilebands), numpy.uint8)
-        for i in range(tilebands):
-            array[:, :, i] = gdalarray.BandReadAsArray(dsquery.GetRasterBand(i + 1),
-                                                       0, 0, querysize, querysize)
-        im = Image.fromarray(array, 'RGBA')     # Always four bands
-        im1 = im.resize((tile_size, tile_size), Image.ANTIALIAS)
-        if os.path.exists(tile):
-            im0 = Image.open(tile)
-            im1 = Image.composite(im1, im0, im1)
-        im1.save(tile, 'PNG')
-
-    else:
-
-        if resampling == 'near':
-            gdal_resampling = gdal.GRA_NearestNeighbour
-
-        elif resampling == 'bilinear':
-            gdal_resampling = gdal.GRA_Bilinear
-
-        elif resampling == 'cubic':
-            gdal_resampling = gdal.GRA_Cubic
-
-        elif resampling == 'cubicspline':
-            gdal_resampling = gdal.GRA_CubicSpline
-
-        elif resampling == 'lanczos':
-            gdal_resampling = gdal.GRA_Lanczos
-
-        elif resampling == 'mode':
-            gdal_resampling = gdal.GRA_Mode
-
-        elif resampling == 'max':
-            gdal_resampling = gdal.GRA_Max
-
-        elif resampling == 'min':
-            gdal_resampling = gdal.GRA_Min
-
-        elif resampling == 'med':
-            gdal_resampling = gdal.GRA_Med
-
-        elif resampling == 'q1':
-            gdal_resampling = gdal.GRA_Q1
-
-        elif resampling == 'q3':
-            gdal_resampling = gdal.GRA_Q3
-
-        # Other algorithms are implemented by gdal.ReprojectImage().
-        dsquery.SetGeoTransform((0.0, tile_size / float(querysize), 0.0, 0.0, 0.0,
-                                 tile_size / float(querysize)))
-        dstile.SetGeoTransform((0.0, 1.0, 0.0, 0.0, 0.0, 1.0))
-
-        res = gdal.ReprojectImage(dsquery, dstile, None, None, gdal_resampling)
-        if res != 0:
-            QgsMessageLog.logMessage("ReprojectImage() failed on %s, error %d" % (tile, res), CATEGORY, Qgis.Info)
-
-
 # Modified version of create_base_tile from gdal2tiles
 #https://github.com/OSGeo/gdal/blob/master/gdal/swig/python/scripts/gdal2tiles.py
 def tileVrt(job_data, tile_data):
     try:
-        folder = os.path.join(job_data.zoom_folder, tile_data.x).replace("\\","/")
-        tileName = tile_data.y + ".png"
-        tile =  os.path.join(folder, tileName).replace("\\","/")
-
-        tilebands = job_data.bandsCount + 1
-
         ds_cache = getattr(localThread, 'ds', None)
         if ds_cache:
             ds = ds_cache
         else:
             ds = gdal.Open(job_data.input_file, gdal.GA_ReadOnly)
             localThread.ds = ds
-
-        mem_drv = gdal.GetDriverByName('MEM')
-        out_drv = gdal.GetDriverByName('PNG')
+        
         alphaband = ds.GetRasterBand(1).GetMaskBand()
-
-        dstile = mem_drv.Create('', 256, 256, job_data.bandsCount + 1)
-        data = alphamask = None
+        alphamask = None
 
         if tile_data.rxsize != 0 and tile_data.rysize != 0 and tile_data.wxsize != 0 and tile_data.wysize != 0:
-            alphamask = alphaband.ReadRaster(tile_data.rx, tile_data.ry, tile_data.rxsize, tile_data.rysize, tile_data.wxsize, tile_data.wysize)
+            #alphamask = alphaband.ReadRaster(tile_data.rx, tile_data.ry, tile_data.rxsize, tile_data.rysize, tile_data.wxsize, tile_data.wysize)
 
-            ##Check if transparent
+            #Check if transparent
             if len(alphamask) == alphamask.count('\x00'.encode('ascii')):
                 return None
-
-            data = ds.ReadRaster(tile_data.rx, tile_data.ry, tile_data.rxsize, tile_data.rysize, tile_data.wxsize, tile_data.wysize, band_list=list(range(1, job_data.bandsCount + 1)))
-
-        if data:
-            if  tile_data.querysize == 256:
-                dstile.WriteRaster(tile_data.wx, tile_data.wy, tile_data.wxsize, tile_data.wysize, data,
-                                   band_list=list(range(1, job_data.bandsCount + 1)))
-                dstile.WriteRaster(tile_data.wx, tile_data.wy, tile_data.wxsize, tile_data.wysize, alphamask, band_list=[tilebands])
-            else:
-                dsquery = mem_drv.Create('', tile_data.querysize, tile_data.querysize, tilebands)
-                dsquery.WriteRaster(tile_data.wx, tile_data.wy, tile_data.wxsize, tile_data.wysize, data,
-                                    band_list=list(range(1, job_data.bandsCount + 1)))
-                dsquery.WriteRaster(tile_data.wx, tile_data.wy, tile_data.wxsize, tile_data.wysize, alphamask, band_list=[tilebands])
-
-                scaleTile(dsquery, dstile, job_data.resampling, tile=tile)
-                del dsquery
-
-        del data
-
-        if job_data.resampling != 'antialias':
-            out_drv.CreateCopy(tile, dstile, strict=0)
-
-        del dstile
-
-        xmlFile = os.path.join(folder, tile_data.y + '.png.aux.xml')
-        if os.path.isfile(xmlFile):
-            os.remove(xmlFile)
-
-
-        if job_data.ftpUpload and not job_data.ftpOnefile:
-            ftp = None
-            if job_data.ftpS:
-                ftp = FTP_TLS()
-            else:
-                ftp = FTP()
-            ftp.connect(job_data.ftpUrl, job_data.ftpPort)
-
-            if job_data.ftpUser is None or job_data.ftpPassword is None:
-                ftp.login()
-            else:
-                ftp.login(user=job_data.ftpUser, passwd=job_data.ftpPassword)
-
-            if job_data.outputPath is not None:
-                ftp.cwd(job_data.outputPath)
-
-            if single_source_mode is False:
-                ftp.cwd(job_data.getDatasetName())
-            
-            ftp.cwd(str(job_data.zoom_level) + '/' + tile_data.x)
-            with open(tile, 'rb') as tile_file:
-                ftp.storbinary('STOR {tileName}'.format(tileName=tileName), tile_file)
-
-            ftp.quit()
-            os.remove(tile)
 
 
         sleep(0.01)
     except Exception as e:
-        QgsMessageLog.logMessage('Tiled vrt error: ' + str(e), CATEGORY, Qgis.Info)
+        job_data.addError(tile_data)
         traceback.print_exc()
         return None
 
     return tile_data
-
-def getHeightsEntry(url_path, zoom_level, minx, minz, maxx, maxz):
-    height_entry = {
-        "dataset" : {
-            "urls" : [ url_path],
-            "projection" : {
-                "web_mercator" : {
-                    "zoom" : zoom_level
-                }
-            },
-            "resolution" : 256,
-            "blend" : "CUBIC",
-            "parse" : {
-                "parse_png_terrarium" : {}
-            }
-        },
-        "bounds" : {
-            "minX" : minx,
-            "maxX" : maxx,
-            "minZ" : minz,
-            "maxZ" : maxz
-        },
-        "zooms" : {
-            "min" : 0,
-            "max" : 3
-        },
-        "priority" : 100
-    }
-
-    return height_entry
-    
-
-def genHeightsConfig(taskData):
-    sources_array = taskData.sourcesArray
-    heights_list = []
-
-    for source in sources_array:
-        wgs_minx, wgs_minz, wgs_maxx, wgs_maxz = source.sourceBounds
-        url_path = "file://"
-        if output is not None:
-            url_path += f"{output}/"
-        if single_source_mode is False:
-            url_path += f"{source.datasetName}/"
-        url_path += str(zoom) + "/${x}/${z}.png"
-
-        heights_list.append(getHeightsEntry(url_path, zoom, wgs_minx, wgs_minz, wgs_maxx, wgs_maxz))
-
-    raw_json = json.dumps(heights_list, indent=4)
-
-    if ftp_upload:
-        #Upload heights config to the server via ftp
-        
-        ftp = None
-        if ftp_s:
-            ftp = FTP_TLS()
-        else:
-            ftp = FTP()
-        ftp.connect(ftp_upload_url, ftp_upload_port)
-
-        if ftp_user is None or ftp_password is None:
-            ftp.login()
-        else:
-            ftp.login(user=ftp_user, passwd=ftp_password)
-
-        if output is not None:
-            ftp.cwd(output)
-
-        json_byte = io.BytesIO()
-        json_byte.write(raw_json.encode())
-        json_byte.seek(0)
-
-        ftp.storbinary('STOR heightsTemplate.json', json_byte)
-
-        if output is not None:
-            QgsMessageLog.logMessage(f"Uploaded heightsTemplate.json to the {output} folder on your server", 
-                CATEGORY, 
-                Qgis.Info)
-        else:
-            QgsMessageLog.logMessage("Uploaded heightsTemplate.json to the root folder of your server", 
-                CATEGORY, 
-                Qgis.Info)
-
-    elif output is not None:
-        heights_template_path = os.path.join(output, "heightsTemplate.json")
-
-        with open(heights_template_path, "w") as heightsTemplate:
-            heightsTemplate.write(raw_json)
-
-        QgsMessageLog.logMessage(f"Created heightsTemplate.json in the {output} folder", 
-                CATEGORY, 
-                Qgis.Info)
-    
-    QgsMessageLog.logMessage("Head to step F. of Part two: Generating/using your dataset to set it up", CATEGORY, Qgis.Info)
 
 
 def taskComplete(task, taskData=None):
@@ -1129,9 +737,9 @@ def taskComplete(task, taskData=None):
         minutes = math.floor(eclipsed)
         seconds = math.floor((eclipsed - minutes) * 60)
         if single_source_mode:
-            QgsMessageLog.logMessage('Done creating dataset with {count} tiles in {minutes} minutes and {seconds} seconds'.format(count=taskData.getTilesCount(), minutes=minutes, seconds=seconds), CATEGORY, Qgis.Info)
+            QgsMessageLog.logMessage('Done debuging dataset with {count} tiles in {minutes} minutes and {seconds} seconds'.format(count=taskData.getTilesCount(), minutes=minutes, seconds=seconds), CATEGORY, Qgis.Info)
         else:
-            QgsMessageLog.logMessage('Done creating {dataset_name} dataset ({index}/{lenght}) with {count} tiles in {minutes} minutes and {seconds} seconds'.format(dataset_name=taskData.getDatasetName(), index=taskData.sourceIndex + 1, lenght=len(taskData.sourcesArray), count=taskData.getTilesCount(), minutes=minutes, seconds=seconds), CATEGORY, Qgis.Info)
+            QgsMessageLog.logMessage('Done debuging {dataset_name} dataset ({index}/{lenght}) with {count} tiles in {minutes} minutes and {seconds} seconds'.format(dataset_name=taskData.getDatasetName(), index=taskData.sourceIndex + 1, lenght=len(taskData.sourcesArray), count=taskData.getTilesCount(), minutes=minutes, seconds=seconds), CATEGORY, Qgis.Info)
 
             #Move onto next source in the sources array
             if taskData.setSourceIndex(taskData.sourceIndex + 1):
@@ -1142,8 +750,7 @@ def taskComplete(task, taskData=None):
                 eclipsed = (time_end - taskData.timeStartedFirst).total_seconds() / 60.0
                 minutes = math.floor(eclipsed)
                 seconds = math.floor((eclipsed - minutes) * 60)
-                QgsMessageLog.logMessage('Done creating all datasets in {minutes} minutes and {seconds} seconds'.format(minutes=minutes, seconds=seconds), CATEGORY, Qgis.Info)
-                genHeightsConfig(taskData)
+                QgsMessageLog.logMessage('Done debuging all datasets in {minutes} minutes and {seconds} seconds'.format(minutes=minutes, seconds=seconds), CATEGORY, Qgis.Info)
 
 sources_list = []
 
@@ -1163,11 +770,9 @@ for source in sources_list:
 source_one_name = sources_array[0].datasetName
 task_data = TaskData(0, sources_array, datetime.now())
 
-task_one_name = 'Create elevation dataset'
+task_one_name = 'Debug elevation dataset'
 if single_source_mode is False:
     task_one_name = task_data.genTaskName()
-
-output = output.replace("\\","/")
 
 globals()['dataset_task'] = QgsTask.fromFunction(task_one_name, genTiles, on_finished=taskComplete, taskData=task_data)
 QgsApplication.taskManager().addTask(globals()['dataset_task'])

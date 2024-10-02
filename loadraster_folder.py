@@ -79,9 +79,10 @@ files = os.listdir(file_directory)
 new_layers = []
 
 if recursive:
-	for dem in glob.iglob(file_directory + '**/**', recursive=True):
+	for dem in glob.iglob(file_directory + '/**', recursive=True):
 		if (dem.endswith(".tif") or dem.endswith('.TIF')
-		or dem.endswith(".img") or dem.endswith(".IMG")):
+		or dem.endswith(".img") or dem.endswith(".IMG")
+		or dem.endswith('.tiff') or dem.endswith('.TIFF')):
 			dem = dem.replace("\\","/")
 			fileinfo = QFileInfo(dem)
 			filename = fileinfo.completeBaseName()

@@ -121,8 +121,8 @@ class Job:
         self.input_file = input_file
         self.bandsCount = bandsCount
         self.resampling = resampling
-        self.nodatavalue = nodatavalue;
-        self.newnodata = newnodata;
+        self.nodatavalue = nodatavalue
+        self.newnodata = newnodata
         self.ftpUpload = ftpUpload
         self.ftpOnefile = ftpOnefile
         self.ftpS = ftpS
